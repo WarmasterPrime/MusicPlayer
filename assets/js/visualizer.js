@@ -91,43 +91,49 @@ class Visual {
 	{
 		this.progBarElm = document.getElementById("head");
 		//Visual.AcceptUrlParams();
-		viz.elm=document.getElementById("visualizer");
-		viz.ctx=viz.elm.getContext("2d");
-		let www=-0.5;
-		let hhh=21.5;
-		hhh=65;
-		viz.elm.width=window.innerWidth-www;
-		viz.elm.height=window.innerHeight-hhh;
-		viz.width=window.innerWidth-www;
-		viz.height=window.innerHeight-hhh;
-		delete(www,hhh);
-		viz.actx=new AudioContext();
-		viz.src=viz.actx.createMediaElementSource(document.getElementById("player"));
-		viz.ana=viz.actx.createAnalyser();
+		viz.elm = document.getElementById("visualizer");
+		viz.ctx = viz.elm.getContext("2d");
+		let www = -0.5;
+		let hhh = 21.5;
+		hhh = 65;
+		viz.elm.width = window.innerWidth - www;
+		viz.elm.height = window.innerHeight - hhh;
+		viz.width = window.innerWidth - www;
+		viz.height = window.innerHeight - hhh;
+		delete (www, hhh);
+		viz.actx = new AudioContext();
+		viz.src = viz.actx.createMediaElementSource(document.getElementById("player"));
+		viz.ana = viz.actx.createAnalyser();
 		viz.src.connect(viz.ana);
 		viz.ana.connect(viz.actx.destination);
-		viz.ana.fftSize=Visual.audioAccuracy;
-		viz.bufferLength=viz.ana.frequencyBinCount;
-		
+		viz.ana.fftSize = Visual.audioAccuracy;
+		viz.bufferLength = viz.ana.frequencyBinCount;
+
 		//viz.audioBuffer = new AudioBuffer();
-		
-		viz.dataArray=new Float32Array(viz.bufferLength);
-		
-		
-		viz.bar={
-			"width":1,
-			"height":viz.height,
-			"color":{
-				"r":Visual.color.red,
-				"g":Visual.color.green,
-				"b":Visual.color.blue,
-				"a":1
+
+		viz.dataArray = new Float32Array(viz.bufferLength);
+
+
+		viz.bar = {
+			"width": 1,
+			"height": viz.height,
+			"color": {
+				"r": Visual.color.red,
+				"g": Visual.color.green,
+				"b": Visual.color.blue,
+				"a": 1
 			}
 		};
-		viz.bar.maxHeight=Visual.getMaxHeight();
-		viz.bar.width=(window.innerWidth/(viz.bufferLength*2));
-		viz.id=viz.elm.id;
-		window.addEventListener("resize",function(){
+		viz.bar.maxHeight = Visual.getMaxHeight();
+
+		// Update bar width calculation to account for buffer length
+		viz.bar.width = (window.innerWidth / (viz.bufferLength * 2));
+
+		// Calculate appropriate xOffset based on buffer length
+		Visual.xOffset = -1 * (window.innerWidth / viz.bufferLength);
+
+		viz.id = viz.elm.id;
+		window.addEventListener("resize", function () {
 			//viz.elm=document.getElementById("visualizer");
 			//viz.ctx=viz.elm.getContext("2d");
 			Visual.updateRenderDisplay();
@@ -154,12 +160,18 @@ class Visual {
 	}
 	
 	static updateAudioAccuracy(value) {
-		value=Math.floor(parseFloat(value));
-		if(value>=32 && value<=32768 && value % 2===0 && Visual.isPow2(value)) {
-			Visual.audioAccuracy=value;
-			viz.ana.fftSize=Visual.audioAccuracy;
-			viz.bufferLength=viz.ana.frequencyBinCount;
-			viz.dataArray=new Float32Array(viz.bufferLength);
+		value = Math.floor(parseFloat(value));
+		if (value >= 32 && value <= 32768 && value % 2 === 0 && Visual.isPow2(value)) {
+			Visual.audioAccuracy = value;
+			viz.ana.fftSize = Visual.audioAccuracy;
+			viz.bufferLength = viz.ana.frequencyBinCount;
+			viz.dataArray = new Float32Array(viz.bufferLength);
+
+			// Recalculate bar width based on new buffer length
+			viz.bar.width = (window.innerWidth / (viz.bufferLength * 2));
+
+			// Update xOffset to help center the visualization
+			Visual.xOffset = -1 * (window.innerWidth / viz.bufferLength);
 		}
 	}
 	
@@ -359,12 +371,17 @@ class Visual {
 	 * Updates the rendering operation.
 	 */
 	static updateRenderDisplay() {
-		viz.elm.height=window.innerHeight;
-		viz.elm.width=window.innerWidth-1;
-		viz.width=viz.elm.width;
-		viz.height=viz.elm.height;
-		viz.bar.maxHeight=Visual.getMaxHeight();
-		viz.bar.width=window.innerWidth/(viz.bufferLength*2);
+		viz.elm.height = window.innerHeight;
+		viz.elm.width = window.innerWidth - 1;
+		viz.width = viz.elm.width;
+		viz.height = viz.elm.height;
+		viz.bar.maxHeight = Visual.getMaxHeight();
+
+		// Update bar width calculation to account for buffer length
+		viz.bar.width = window.innerWidth / (viz.bufferLength * 2);
+
+		// Update xOffset to help center the visualization
+		Visual.xOffset = -1 * (window.innerWidth / viz.bufferLength);
 	}
 	/**
 	 * Entry point to perform the rendering.
