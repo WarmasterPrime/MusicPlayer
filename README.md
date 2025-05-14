@@ -84,10 +84,20 @@
 
 	<details>
 		<summary>Server Requests</summary>
-		### Get songs within a directory/playlist
+		### Get songs within a directory/playlist (And play the song)
 		```js
+		let player = new Player(document.getElementById("player"), document.getElementById("caption"), document.getElementById("head"), document.getElementById("song-name")); // Creates a new instance of the Player class.
+		let songs = player.select("http://doft.ddns.net/files/Music/NCS/"); // Gets the songs within the NCS directory.
+		player.play(songs[0]); // Plays the first song found in the NCS directory.
+		```
 
+		### Get a random song
+		```js
+		let player = new Player(document.getElementById("player"), document.getElementById("caption"), document.getElementById("head"), document.getElementById("song-name")); // Creates a new instance of the Player class.
+		player.selectSong(); // Contacts the server and selects a random song to play immediately.
 		```
 	</details>
+
+	
 
 </details>
