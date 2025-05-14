@@ -79,3 +79,15 @@
 	</details>
 
 </details>
+<details>
+	<summary>Examples</summary>
+
+	<details>
+		<summary>Server Requests</summary>
+		### Get songs within a directory/playlist
+		```js
+
+		```
+	</details>
+
+</details>
