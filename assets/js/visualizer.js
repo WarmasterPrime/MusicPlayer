@@ -81,7 +81,7 @@ class Visual {
 		Visual.color.green=document.getElementById("g").value;
 		Visual.color.blue=document.getElementById("b").value;
 		Visual.updateColor();
-		
+		Visual.updateRenderDisplay();
 	}
 	
 	/**
@@ -359,13 +359,6 @@ class Visual {
 	 * Updates the rendering operation.
 	 */
 	static updateRenderDisplay() {
-		//viz.elm.height=window.innerHeight;
-		//viz.elm.width=window.innerWidth-1;
-		//viz.width=viz.elm.width;
-		//viz.height=viz.elm.height;
-		//viz.bar.maxHeight=Visual.getMaxHeight();
-		//viz.bar.width=window.innerWidth/(viz.bufferLength*2);
-
 		viz.elm.height = window.innerHeight;
 		viz.elm.width = window.innerWidth - 1;
 		viz.width = viz.elm.width;
@@ -390,6 +383,7 @@ class Visual {
 			GV_Ran=true;
 		}
 		Visual.postRender();
+		Visual.updateRenderDisplay();
 	}
 	/**
 	 * Performs rendering caluclations and rendering operations.
@@ -492,69 +486,6 @@ class Visual {
 	 * Renders the lines.
 	 */
 	static #renderLines() {
-		//let o=viz.bufferLength;
-		//let i=0, u=0, xx=(viz.bar.width+1)*(viz.bufferLength+Visual.xOffset), tre=0, toff=150, x=0, ii=viz.bufferLength-viz.bar.width;
-		//let tcl=100;
-		//viz.ctx.lineWidth=2;
-		//let tmpData=[];
-		//let region;
-		//viz.ctx.strokeStyle="red";
-		//let colorCalc=Color.createFromRGB(0,0,0);
-		//if(Visual.fillPolygon) {
-		//	region=new Path2D();
-		//	region.moveTo(0, viz.height);
-		//} else {
-		//	viz.ctx.beginPath();
-		//	viz.ctx.moveTo(0, viz.height);
-		//}
-		//for(o=viz.bufferLength;o>-1;o--) {
-		//	colorCalc=Color.createFromRGB(0,0,0);
-		//	let y=((viz.dataArray[o]+toff)/viz.bar.height)*viz.bar.maxHeight;
-		//	let calc=(y/viz.height)*256;
-		//	let tmpX=x+(i*Visual.xOffset);
-		//	let tmpY=viz.height-y;
-		//	colorCalc.red=viz.bar.color.r*calc;
-		//	colorCalc.green=viz.bar.color.g*calc;
-		//	colorCalc.blue=viz.bar.color.b*calc;
-		//	if(Visual.fillPolygon)
-		//		region.lineTo(tmpX, tmpY);
-		//	else {
-		//		viz.ctx.strokeStyle=colorCalc.toString();
-		//		viz.ctx.lineTo(tmpX, tmpY);
-		//	}
-		//	x+=viz.bar.width+1;
-		//	i++;
-		//	y=((viz.dataArray[u]+toff)/viz.bar.height)*viz.bar.maxHeight;
-		//	calc=(y/viz.height)*256;
-		//	let altX=xx+(ii*Visual.xOffset);
-		//	let altY=viz.height-y;
-		//	tmpData.push({x:altX, y:altY, calc:calc});
-		//	if (viz.dataArray[u])
-		//		tre+=viz.dataArray[u]+toff;
-		//	u++;
-		//	xx+=viz.bar.width+1;
-		//	ii++;
-		//}
-		//for(let itu=0;itu<tmpData.length;itu++) {
-		//	if(Visual.fillPolygon)
-		//		region.lineTo(tmpData[itu].x, tmpData[itu].y);
-		//	else {
-		//		viz.ctx.strokeStyle="rgb("+(viz.bar.color.r*tmpData[itu].calc)+","+(viz.bar.color.g*tmpData[itu].calc)+","+(viz.bar.color.b*tmpData[itu].calc)+")";
-		//		viz.ctx.lineTo(tmpData[itu].x, tmpData[itu].y);
-		//	}
-		//}
-		//if(Visual.fillPolygon) {
-		//	region.lineTo(Visual.width, Visual.height);
-		//	region.closePath();
-		//	viz.ctx.fillStyle=colorCalc.toString();
-		//	viz.ctx.fill(region);
-		//} else {
-		//	viz.ctx.lineTo(Visual.width, Visual.height);
-		//	viz.ctx.strokeStyle=colorCalc.toString();
-		//	viz.ctx.stroke();
-		//}
-		//return tre;
-
 		let o = viz.bufferLength;
 		let i = 0, u = 0, tre = 0, toff = 150, x = 0;
 		let totalVisWidth = viz.bar.width * (viz.bufferLength * 2);
@@ -668,28 +599,6 @@ class Visual {
 	 * Renders the audio visualizer as bar designs.
 	 */
 	static #renderBars() {
-		//let o=viz.bufferLength;
-		//let i=0, u=0, xx=(viz.bar.width+1)*(viz.bufferLength+Visual.xOffset), tre=0, toff=150, x=0, ii=viz.bufferLength-viz.bar.width;
-		//for(o=viz.bufferLength;o>-1;o--) {
-		//	let y=((viz.dataArray[o]+toff)/viz.bar.height)*viz.bar.maxHeight;
-		//	// 256
-		//	let calc=(y/viz.height)*256;
-		//	viz.ctx.fillStyle="rgb("+(viz.bar.color.r*calc)+","+(viz.bar.color.g*calc)+","+(viz.bar.color.b*calc)+")";
-		//	viz.ctx.fillRect(x+(i*Visual.xOffset),viz.height-y,viz.bar.width,viz.height);
-		//	x+=viz.bar.width+1;
-		//	i++;
-		//	y=((viz.dataArray[u]+toff)/viz.bar.height)*viz.bar.maxHeight;
-		//	calc=(y/viz.height)*256;
-		//	viz.ctx.fillStyle="rgb("+(viz.bar.color.r*calc)+","+(viz.bar.color.g*calc)+","+(viz.bar.color.b*calc)+")";
-		//	viz.ctx.fillRect(xx+(ii*Visual.xOffset),viz.height-y,viz.bar.width,viz.height);
-		//	if (viz.dataArray[u])
-		//		tre+=viz.dataArray[u]+toff;
-		//	u++;
-		//	xx+=viz.bar.width+1;
-		//	ii++;
-		//}
-		//return tre;
-
 		let o = viz.bufferLength;
 		let i = 0, u = 0, tre = 0, toff = 150, x = 0;
 		// Calculate total width of visualization to center it
@@ -783,9 +692,6 @@ class Visual {
 				meIns.progBarElm.style.filter="drop-shadow(0px 0px 10px rgba("+color+")) drop-shadow(16px 0px 10px rgba("+color+")) drop-shadow(-16px 0px 10px rgba("+color+")) drop-shadow(0px 16px 10px rgba("+color+")) drop-shadow(0px -16px 10px rgba("+color+"))";
 				meIns.progBarElm.style.backgroundColor="rgb("+cl+")";
 			},100);
-			
-			//document.getElementById("head").style.filter="drop-shadow(0px 0px 10px rgba("+color+")) drop-shadow(16px 0px 10px rgba("+color+")) drop-shadow(-16px 0px 10px rgba("+color+")) drop-shadow(0px 16px 10px rgba("+color+")) drop-shadow(0px -16px 10px rgba("+color+"))";
-			//document.getElementById("head").style.backgroundColor="rgb("+cl+")";
 		} else {
 			let tcl=100;
 			let cl=Math.abs(Math.floor(viz.bar.color.r*tcl))+","+Math.abs(Math.floor(viz.bar.color.g*tcl))+","+Math.abs(Math.floor(viz.bar.color.b*tcl));
@@ -794,12 +700,6 @@ class Visual {
 				meIns.progBarElm.style.filter="drop-shadow(0px 0px 10px rgba(" + color + ")) drop-shadow(16px 0px 10px rgba(" + color + ")) drop-shadow(-8px 0px 10px rgba(" + color + ")) drop-shadow(0px 16px 10px rgba(" + color + ")) drop-shadow(0px -16px 10px rgba(" + color + "))";
 				meIns.progBarElm.style.backgroundColor="rgb("+ard+")";
 			},100);
-			//this.progBarElm.style.filter="drop-shadow(0px 0px 10px rgba(" + color + ")) drop-shadow(16px 0px 10px rgba(" + color + ")) drop-shadow(-8px 0px 10px rgba(" + color + ")) drop-shadow(0px 16px 10px rgba(" + color + ")) drop-shadow(0px -16px 10px rgba(" + color + "))";
-			//this.progBarElm.style.backgroundColor="rgb("+ard+")";
-			
-			//this.#applyProgBarStyle("filter:drop-shadow(0px 0px 10px rgba(" + color + ")) drop-shadow(16px 0px 10px rgba(" + color + ")) drop-shadow(-8px 0px 10px rgba(" + color + ")) drop-shadow(0px 16px 10px rgba(" + color + ")) drop-shadow(0px -16px 10px rgba(" + color + "));background-color:rgb("+ard+")");
-			//document.getElementById("head").style.filter="drop-shadow(0px 0px 10px rgba(" + color + ")) drop-shadow(16px 0px 10px rgba(" + color + ")) drop-shadow(-8px 0px 10px rgba(" + color + ")) drop-shadow(0px 16px 10px rgba(" + color + ")) drop-shadow(0px -16px 10px rgba(" + color + "))";
-			//document.getElementById("head").style.backgroundColor="rgb("+ard+")";
 		}
 	}
 	
@@ -910,21 +810,6 @@ class Visual {
 		if(text!==undefined && text!=="]")
 			Visual.captionElm.innerText=text;
 	}
-	
-	/*
-	static getSongLyrics(songName, artist) {
-		// https://lyrist.vercel.app/api/{SONG_NAME}/{ARTIST}
-		// https://lyrist.vercel.app/api/RuLe/Ado
-		const baseUrl="https://lyrist.vercel.app/api/";
-		let a={
-			"src":baseUrl+songName+"/"+artist,
-			"args":{
-				"cmd":""
-			}
-		};
-		Server.send(a, true, Visual.processSongLyrics);
-	}
-	*/
 	/**
 	 * Processes the song lyrics.
 	 * @deprecated Not used.
@@ -1015,3 +900,4 @@ function HexToDec(q=false) {
 		res=parseInt(q,16);
 	return res;
 }
+Visual.updateRenderDisplay();
