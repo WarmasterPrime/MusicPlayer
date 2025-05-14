@@ -20,12 +20,12 @@
 
 <details>
 	<summary>REST API</summary>
-	|Attribute|Data Type|Description|Example|
-	|---|---|---|---|
-	|song|string|The url path to the song file.|#song=http://doft.ddns.net/files/Music/NCS/Together%2520%255BNCS%2520Lyrics%255D.mp3|
-	|r|float|The red color value for the visualization.|#r=255|
-	|g|float|The green color value for the visualization.|#g=0|
-	|b|float|The blue color value for the visualization.|#b=0|
+	| Attribute | Data Type | Description | Example |
+	| --- | --- | --- | --- |
+	| song | string | The url path to the song file.|#song=http://doft.ddns.net/files/Music/NCS/Together%2520%255BNCS%2520Lyrics%255D.mp3 |
+	| r | float | The red color value for the visualization. | #r=255 |
+	| g | float | The green color value for the visualization. | #g=0 |
+	| b | float | The blue color value for the visualization. | #b=0 |
 </details>
 
 <details>
