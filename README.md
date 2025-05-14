@@ -2,6 +2,7 @@
 
 <details>
 	<summary>Setup</summary>
+
 - Download the project zip file.
 - Extract the zip file into the root directory of your web server.
 - To change the background image, access the bg.css file in the css directory located within the assets directory, update the url path to point to the publicly accessible image file.
@@ -9,6 +10,7 @@
 
 <details>
 	<summary>UI Controls</summary>
+
 - Spacebar: Toggle play/pause of song.
 - Arrow Up: Increase volume.
 - Arrow Down: Decrease volume.
@@ -20,6 +22,7 @@
 
 <details>
 	<summary>REST API</summary>
+
 | Attribute | Data Type | Description | Example |
 | --- | --- | --- | --- |
 | song | string | The url path to the song file. | #song=http://doft.ddns.net/files/Music/NCS/Together%2520%255BNCS%2520Lyrics%255D.mp3 |
@@ -33,6 +36,7 @@
 
 <details>
 	<summary>Basics</summary>
+
 ## main.js
 The main.js file is the entry point of the application. It initializes all client-side modules, assets, etc. and prepares the audio visualizer for songs to be played, loaded, and visualized. This file should not be modified unless specifying additional REST API arguments.
 
@@ -68,6 +72,7 @@ The SongSearcher class is a work in progress class that aims for the ability to 
 </details>
 <details>
 	<summary>Server-Side Requests</summary>
+
 ## get.php
 Obtains the song url(s) from the server that are located within the given playlist/directory. Use `cmd` to specify the command to perform (Either `playlist` or `song`), and the `value` to specify the playlist/directory. This only accepts POST requests.
 
@@ -84,6 +89,7 @@ Returns the JSON string of the lyrics object for the requested song. Use `songNa
 
 <details>
 	<summary>Server Requests</summary>
+
 ### Get songs within a directory/playlist (And play the song)
 ```js
 let player = new Player(document.getElementById("player"), document.getElementById("caption"), document.getElementById("head"), document.getElementById("song-name")); // Creates a new instance of the Player class.
