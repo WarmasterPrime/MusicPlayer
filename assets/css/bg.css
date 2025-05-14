@@ -1,0 +1,125 @@
+@import url("vars.css");
+
+.main-container {
+	position:absolute;
+	top:0;
+	left:0;
+	width:100%;
+	height:100%;
+	background-color:rgba(0,0,0,0.0);
+}
+.main-container:after {
+	clear:both;
+	content:"";
+	position:absolute;
+	top:0;
+	left:0;
+	width:100%;
+	height:100%;
+	background-color:rgba(0,0,0,0.6);
+}
+
+.main-container:before {
+	clear:both;
+	content:"";
+	position:absolute;
+	top:0;
+	left:0;
+	width:100%;
+	height:100%;
+	background-color:red;
+	background-image:url("http://doft.ddns.net/files/stream/bg.jpg");
+	background-size:200%;
+	background-position:100% 100%;
+	animation:bg-move var(--bg-d-) ease-in-out 0s infinite;
+}
+
+
+:root {
+	--ibgs-:250%;
+}
+
+.ibg {
+	position:absolute;
+	top:50%;
+	left:50%;
+	transform:translateX(-50%) translateY(-50%);
+	width:var(--ibgs-);
+	height:var(--ibgs-);
+	outline:none;
+	border:none;
+	padding:0px;
+	margin:0px;
+	background-color:transparent;
+	display:block;
+	animation:bg-move-0 60s ease-in-out 0s infinite;
+}
+
+@keyframes bg-move-0 {
+	0%{
+		top:100%;
+		left:100%;
+	}
+	25%{
+		top:0%;
+		left:0%;
+	}
+	50%{
+		top:0%;
+		left:100%;
+	}
+	75%{
+		top:100%;
+		left:0%;
+	}
+	100%{
+		top:100%;
+		left:100%;
+	}
+}
+
+@keyframes bg-move {
+	0%{
+		background-position:100% 100%;
+	}
+	25%{
+		background-position:0% 0%;
+	}
+	50%{
+		background-position:100% 0%;
+	}
+	75%{background-position:0% 100%;}
+	100%{background-position:100% 100%;}
+}
+
+/*
+.ibg {
+	position:fixed;
+	top:0;
+	left:0;
+	width:100vw;
+	height:100vh;
+	outline:none;
+	border:none;
+	background-color:transparent;
+	overflow:hidden;
+}
+*/
+label {
+	padding-right:4px;
+}
+.tooltip {
+	position:fixed;
+	top:0;
+	left:0;
+	width:100px;
+	height:30px;
+	font-size:1.0em;
+	font-family:monospace;
+	background-color:rgba(0,0,0,0.85);
+	border-radius:10px;
+	padding:4px;
+	color:#FFF;
+	opacity:0;
+	z-index:99999;
+}

@@ -1,0 +1,23 @@
+
+:root{
+	--scb-width-:5px;
+	--scb-track-bg-color-:rgb(241,241,241);
+	--scb-thumb-bg-color-:rgb(100,100,100);
+	--scb-thumb-bg-color-hover-:rgb(30,30,30);
+}
+
+::-webkit-scrollbar {
+	width:5px;
+}
+
+::-webkit-scrollbar-track {
+	background-color:var(--scb-track-bg-color-);
+}
+
+::-webkit-scrollbar-thumb {
+	background-color:var(--scb-thumb-bg-color-);
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background-color:var(--scb-thumb-bg-color-hover-);
+}

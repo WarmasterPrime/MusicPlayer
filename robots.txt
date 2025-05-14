@@ -1,0 +1,52 @@
+User-agent: msnbot
+Crawl-delay: 120
+Disallow: /*.xml$
+Disallow: /buzz/*.xml$
+Disallow: /category/*.xml$
+Disallow: /mobile/
+Disallow: *?s=mobile
+Disallow: *?s=lightbox
+Disallow: /bfmp/
+Disallow: /buzzfeed/
+Disallow: /contest
+Disallow: /contests
+Disallow: /plugin/
+Disallow: /embed/
+Disallow: /_comments/
+
+User-agent: *
+Disallow: /*.xml$
+Disallow: /buzz/*.xml$
+Disallow: /category/*.xml$
+Disallow: /mobile/
+Disallow: *?s=mobile
+Disallow: *?s=lightbox
+Disallow: /bfmp/
+Disallow: /buzzfeed/
+Disallow: /contest
+Disallow: /contests
+Disallow: /plugin/
+Disallow: /embed/
+Disallow: /_comments/
+
+User-agent: discobot
+Disallow: /
+
+User-agent: Slurp
+Crawl-delay: 4
+
+User-agent: Googlebot
+Disallow: /nogooglebot/
+
+# Example 1: Block only Googlebot
+User-agent: Googlebot
+Disallow: /
+
+# Example 2: Block Googlebot and Adsbot
+User-agent: Googlebot
+User-agent: AdsBot-Google
+Disallow: /
+ 
+# Example 3: Block all but AdsBot crawlers
+User-agent: * 
+Disallow: /

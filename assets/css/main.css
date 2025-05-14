@@ -1,0 +1,276 @@
+
+@import url("bg.css");
+@import url("misc.css");
+@import url("player.css");
+@import url("subtitle.css");
+
+body, html {
+	position:fixed;
+	top:0;
+	left:0;
+	width:100vw;
+	height:100vh;
+	padding:0;
+	margin:0;
+	display:block;
+	overflow:hidden;
+}
+
+div.main {
+	position:absolute;
+	top:0;
+	left:0;
+	width:100vw;
+	height:100vh;
+	overflow:hidden;
+	overflow-y:auto;
+}
+
+div.item, button.back {
+	position:relative;
+	top:0;
+	left:0;
+	width:100px;
+	height:100px;
+	display:inline-block;
+	vertical-align:top;
+	outline:none;
+	border:none;
+	background-color:rgba(200,150,200,1.0);
+	cursor:pointer;
+}
+
+div.item button {
+	position:absolute;
+	top:0;
+	left:0;
+	width:100%;
+	height:100%;
+	outline:none;
+	cursor:pointer;
+	border:none;
+	background-color:rgba(0,0,0,0.0);
+}
+
+canvas{
+	position:absolute;
+	bottom:0;
+	left:0;
+	z-index:2;
+	/*border:1px solid #000;*/
+}
+
+.menu {
+	position:absolute;
+	top:0;
+	right:-670px;
+	width:700px;
+	height:100%;
+	overflow:hidden;
+	overflow-y:auto;
+	padding-left:0px;
+	z-index:100;
+	opacity:0.0;
+	border-right:1px solid #000;
+	background:linear-gradient(to bottom right, rgba(50,50,100,0.5), rgba(200,50,50,0.5));
+	background-size:400% 400%;
+	animation:bg_anim 5s linear 0s infinite alternate;
+	transition-duration:0.25s;
+}
+.menu:hover {
+	right:0;
+	opacity:1;
+	padding-left:4px;
+}
+@keyframes bg_main {
+	0%{background-position:100% 100%;}
+	100%{background-position:0% 0%;}
+}
+
+div.menu div.container {
+	position:relative;
+	top:0;
+	left:0;
+	width:calc(50% - 2px);
+	height:fit-content;
+	display:inline-flex;
+	flex-wrap:wrap;
+	flex-direction:row;
+	vertical-align:top;
+}
+
+div.menu div.container div.ad-ezoic {
+	position:relative;
+	width:300px;
+	height:300px;
+	display:inline-block;
+	background-color:rgba(0,0,0,0.5);
+}
+
+
+
+button:hover {
+	box-shadow:inset 0px 0px 10px 2px rgba(0,0,0,0.75);
+	cursor:pointer;
+}
+label {
+	color:#FFF;
+	font-family:arial;
+}
+
+
+
+
+
+#main-before:after {
+	clear:both;
+	content:"";
+	position:absolute;
+	top:0;
+	left:0;
+	width:100%;
+	height:100%;
+	display:block;
+	background-color:rgba(0,0,0,0.5);
+	z-index:2;
+}
+
+.desc {
+	position:absolute;
+	top:50%;
+	left:50%;
+	transform:translateX(-50%) translateY(-50%);
+	width:100vw;
+	height:10vh;
+	background-color:rgba(0,0,0,0.0);
+	color:#FFF;
+	font-family:arial;
+	font-size:2.0em;
+	text-align:center;
+	overflow:visible;
+	z-index:100;
+}
+.bar {
+	position:relative;
+	top:0;
+	left:0;
+	width:100%;
+	height:5px;
+	background-color:rgba(0,0,0,0.0);
+	overflow:visible;
+}
+:root {
+	--sp-:5px;
+	--col-:rgba(255,50,100,0.5);
+}
+.bar .head {
+	position:absolute;
+	top:0;
+	left:0;
+	width:0%;
+	height:100%;
+	background-color:rgba(255,50,100,1.0);
+	/*background:linear-gradient(to right, rgba(150,10,50,1.0), rgba(255,50,100,1.0));*/
+	/*filter:drop-shadow(0px 0px 10px rgba(255,50,100,1.0));*/
+	/*
+	drop-shadow(1px 0px var(--sp-) var(--col-))
+	drop-shadow(0px 1px var(--sp-) var(--col-))
+	drop-shadow(-1px 0px var(--sp-) var(--col-))
+	drop-shadow(0px -1px var(--sp-) var(--col-));
+	*/
+	z-index:999999999999999999999999999;
+	/*border-radius:50px;*/
+	/*animation:flicker 0.5s linear 0s infinite;*/
+	/*
+	transition-duration:0.1s;
+	*/
+}
+
+
+.high {
+	filter:drop-shadow(0px 0px 10px rgba(255,50,100,1.0));
+	transition-duration:0.5s;
+}
+.low {
+	filter:drop-shadow(0px 0px 10px rgba(100,10,50,0.0));
+	transition-duration:0.5s;
+}
+
+
+@keyframes flicker {
+	0%{filter:drop-shadow(0px 0px 10px rgba(255,50,100,1.0));}
+	50%{filter:drop-shadow(0px 0px 10px rgba(200,30,80,1.0));}
+	100%{filter:drop-shadow(0px 0px 10px rgba(255,50,100,1.0));}
+}
+
+
+.middle {
+	position:fixed;
+	top:0;
+	left:50%;
+	transform:translateX(-50%);
+	width:1px;
+	height:100%;
+	background-color:rgba(255,255,0,1.0);
+	z-index:9999999;
+}
+
+.mnav {
+	position:absolute;
+	top:-57px;
+	left:0;
+	width:100%;
+	height:57px;
+	opacity:0.0;
+	padding-top:30px;
+	padding-bottom:10px;
+	z-index:99;
+	transition-duration:0.25s;
+}
+.mnav:hover {
+	position:absolute;
+	top:0;
+	left:0;
+	width:100%;
+	height:80px;
+	opacity:1.0;
+	padding-top:30px;
+	padding-bottom:10px;
+	z-index:100;
+	background-color:rgba(0,0,0,0.5);
+	transition-duration:0.25s;
+}
+span.item {
+	background-color:rgba(100,100,100,0.85);
+	color:#FFF;
+	font-family:arial;
+	display:inline-block;
+	vertical-align:top;
+	padding:4px;
+	border-radius:10px;
+	cursor:pointer !important;
+}
+span.item label {
+	cursor:pointer;
+	user-select:none;
+}
+
+
+.options {
+	position:relative;
+	top:0;
+	left:0;
+	width:25%;
+	height:100%;
+	display:inline-block;
+	vertical-align:top;
+	overflow:hidden;
+	overflow-y:auto;
+}
+
+
+
+
+
+
+

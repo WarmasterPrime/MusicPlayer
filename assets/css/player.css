@@ -1,0 +1,221 @@
+
+/*
+A CSS stylesheet used for the media player controls.
+*/
+:root{
+	--pcb-dur-:0.25s;
+	--pls-dur-:0.5s;
+}
+.menu {
+	user-select:none !important;
+}
+/*
+audio {
+	display:none;
+}
+*/
+/* Player container */
+.player-container {
+	position:relative;
+	top:50%;
+	left:0;
+	width:calc(40% - 10px);
+	height:60px;
+	padding:5px;
+	transform:translateY(-50%);
+	display:inline-block;
+}
+/* Player control container */
+.player-container .controls {
+	position:relative;
+	top:50%;
+	left:0;
+	width:100%;
+	height:100%;
+	transform:translateY(-50%);
+	background-color:rgba(150,150,150);
+	color:#FFF;
+	font-family:arial;
+	display:inline-block;
+	border-radius:20px;
+	user-select:none;
+}
+/* Player control buttons */
+.player-container .controls button {
+	position:relative;
+	top:-50%;
+	left:0;
+	width:40px;
+	height:40px;
+	transform:translateY(40%);
+	outline:none;
+	border:2px solid #FFF;
+	border-radius:10px;
+	background-color:rgba(0,0,0,0.0);
+	color:#FFF;
+	cursor:pointer;
+	user-select:none;
+	display:inline-block;
+	overflow:hidden;
+	padding:10px;
+	-webkit-transition-duration:var(--pcb-dur-);
+	-moz-transition-duration:var(--pcb-dur-);
+	-ms-transition-duration:var(--pcb-dur-);
+	-o-transition-duration:var(--pcb-dur-);
+	transition-duration:var(--pcb-dur-);
+}
+.player-container .controls button:hover {
+	background-color:rgba(50,50,50,0.75);
+}
+.player-container .controls .seekbar {
+	position:relative;
+	top:50%;
+	left:0;
+	width:50%;
+	height:75%;
+	transform:translateY(-50%);
+	outline:none;
+	border:none;
+	border-radius:20px;
+	background-color:rgb(30,30,30);
+	overflow:hidden;
+	display:inline-block;
+	-webkit-user-drag:none;
+	user-drag:none;
+}
+.player-container .controls .seekbar .thumb {
+	position:absolute;
+	top:50%;
+	left:0;
+	width:40px;
+	height:40px;
+	transform:translateY(-50%);
+	outline:none;
+	border:none;
+	cursor:pointer;
+	background-color:rgb(255,0,100);
+	border-radius:100%;
+	-webkit-user-drag:none;
+	user-drag:none;
+}
+
+
+
+.pause:after {
+	clear:both;
+	content:"";
+	position:absolute;
+	top:50%;
+	left:50%;
+	width:75%;
+	height:75%;
+	transform:translateX(-50%) translateY(-50%);
+	clip-path:polygon(
+		25% 0,
+		0 0,
+		0 100%,
+		20% 100%,
+		25% 0,
+		75% 0,
+		75% 100%,
+		100% 100%,
+		100% 0
+	);
+	background-color:#FFF;
+	-webkit-transition-duration:var(--pls-dur-);
+	-moz-transition-duration:var(--pls-dur-);
+	-ms-transition-duration:var(--pls-dur-);
+	-o-transition-duration:var(--pls-dur-);
+	transition-duration:var(--pls-dur-);
+}
+
+.play:after {
+	clear:both;
+	content:"";
+	position:absolute;
+	top:50%;
+	left:50%;
+	width:75%;
+	height:75%;
+	transform:translateX(-50%) translateY(-50%);
+	clip-path:polygon(
+		0 0,
+		0 0,
+		0 100%,
+		0 100%,
+		0 100%,
+		100% 50%,
+		100% 50%,
+		100% 50%,
+		100% 50%
+	);
+	background-color:#FFF;
+	-webkit-transition-duration:var(--pls-dur-);
+	-moz-transition-duration:var(--pls-dur-);
+	-ms-transition-duration:var(--pls-dur-);
+	-o-transition-duration:var(--pls-dur-);
+	transition-duration:var(--pls-dur-);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
