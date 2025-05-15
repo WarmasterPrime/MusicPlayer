@@ -359,6 +359,7 @@ class Visual {
 	 * Updates the rendering operation.
 	 */
 	static updateRenderDisplay() {
+		console.log(viz.elm);
 		viz.elm.height = window.innerHeight;
 		viz.elm.width = window.innerWidth - 1;
 		viz.width = viz.elm.width;
