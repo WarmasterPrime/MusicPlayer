@@ -194,7 +194,8 @@ class Player {
 			let start=this.currentTime;
 			let end=this.duration;
 			let stat=(start/end) * window.innerWidth;
-			this.progressBarElement.style.width=stat+"px";
+			//this.progressBarElement.style.width=stat+"px";
+			this.progressBarElement.width = stat;
 			//let stat=((start/end)*100);
 			//this.progressBarElement.style.width=stat+"%";
 			let meInstance=this;

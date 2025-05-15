@@ -102,7 +102,7 @@ class cgi {
 		q.ctx.lineTo(q.x,q.y+(q.h/2));
 		*/
 		
-		console.log(`[${q.x}, ${(q.y+(q.h/2))}] [${q.x+bpos}, ${q.y}] [${q.x+(bpos*3)}, ${q.y}] [${q.x+q.w}, ${q.y+(q.h/2)}] [${q.x+(bpos*3)}, ${q.y+q.h}] [${q.x+bpos}, ${q.y+q.h}] [${q.x}, ${(q.y+(q.h/2))}] [${q.x}, ${q.y+q.h}]`);
+		//console.log(`[${q.x}, ${(q.y+(q.h/2))}] [${q.x+bpos}, ${q.y}] [${q.x+(bpos*3)}, ${q.y}] [${q.x+q.w}, ${q.y+(q.h/2)}] [${q.x+(bpos*3)}, ${q.y+q.h}] [${q.x+bpos}, ${q.y+q.h}] [${q.x}, ${(q.y+(q.h/2))}] [${q.x}, ${q.y+q.h}]`);
 		
 		
 		q.ctx.closePath();

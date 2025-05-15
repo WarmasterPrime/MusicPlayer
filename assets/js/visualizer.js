@@ -82,6 +82,8 @@ class Visual {
 		Visual.color.blue=document.getElementById("b").value;
 		Visual.updateColor();
 		Visual.updateRenderDisplay();
+
+		
 	}
 	
 	/**
@@ -89,7 +91,7 @@ class Visual {
 	 */
 	static ini()
 	{
-		this.progBarElm = document.getElementById("head");
+		//this.progBarElm = document.getElementById("head");
 		//Visual.AcceptUrlParams();
 		viz.elm=document.getElementById("visualizer");
 		viz.ctx=viz.elm.getContext("2d");
@@ -108,12 +110,7 @@ class Visual {
 		viz.ana.connect(viz.actx.destination);
 		viz.ana.fftSize=Visual.audioAccuracy;
 		viz.bufferLength=viz.ana.frequencyBinCount;
-		
-		//viz.audioBuffer = new AudioBuffer();
-		
 		viz.dataArray=new Float32Array(viz.bufferLength);
-		
-		
 		viz.bar={
 			"width":1,
 			"height":viz.height,
@@ -128,10 +125,10 @@ class Visual {
 		viz.bar.width=(window.innerWidth/(viz.bufferLength*2));
 		viz.id=viz.elm.id;
 		window.addEventListener("resize",function(){
-			//viz.elm=document.getElementById("visualizer");
-			//viz.ctx=viz.elm.getContext("2d");
 			Visual.updateRenderDisplay();
 		});
+		this.progBarElm = new ProgressBar(viz, viz.ctx, player);
+		player.progressBarElement = this.progBarElm;
 	}
 	
 	/**
@@ -319,9 +316,14 @@ class Visual {
 	 * Updates the bar colors.
 	 * @param {number} ctl The color scaling value.
 	 */
-	static updateColorBars(ctl=150) {
-		if(document.getElementById("head"))
-			document.getElementById("head").style.backgroundColor="rgb("+Math.abs(Math.floor(Visual.color.red*ctl))+","+Math.abs(Math.floor(Visual.color.green*ctl))+","+Math.abs(Math.floor(Visual.color.blue*ctl))+")";
+	static updateColorBars(ctl = 150) {
+		if (this.progBarElm && this.progBarElm.color) {
+			this.progBarElm.color.red = Math.abs(Math.floor(Visual.color.red * ctl));
+			this.progBarElm.color.green = Math.abs(Math.floor(Visual.color.green * ctl));
+			this.progBarElm.color.blue = Math.abs(Math.floor(Visual.color.blue * ctl));
+		}
+		//if(document.getElementById("head"))
+		//	document.getElementById("head").style.backgroundColor="rgb("+Math.abs(Math.floor(Visual.color.red*ctl))+","+Math.abs(Math.floor(Visual.color.green*ctl))+","+Math.abs(Math.floor(Visual.color.blue*ctl))+")";
 	}
 	/**
 	 * Resets the colors to the default colors.
@@ -329,8 +331,11 @@ class Visual {
 	static resetColors() {
 		Visual.color.red=2;
 		Visual.color.green=0;
-		Visual.color.blue=0.55;
-		document.getElementById("head").style.backgroundColor="rgb(255,50,100)";
+		Visual.color.blue = 0.55;
+		this.progBarElm.color.red = 255;
+		this.progBarElm.color.green = 0;
+		this.progBarElm.color.blue = 100;
+		//document.getElementById("head").style.backgroundColor="rgb(255,50,100)";
 	}
 	/**
 	 * Parses the URL hash parameters and updates the configurations on this page.
@@ -359,15 +364,17 @@ class Visual {
 	 * Updates the rendering operation.
 	 */
 	static updateRenderDisplay() {
-		viz.elm.height = window.innerHeight;
-		viz.elm.width = window.innerWidth - 1;
-		viz.width = viz.elm.width;
-		viz.height = viz.elm.height;
-		viz.bar.maxHeight = Visual.getMaxHeight();
-		// Dynamically adjust bar width to fit the entire visualization within the canvas
-		viz.bar.width = viz.width / (viz.bufferLength * 2);
-		// Calculate an offset to center the visualization if needed
-		Visual.xOffset = 0; // Reset offset, will be recalculated in rendering methods if necessary
+		if (viz.elm) {
+			viz.elm.height = window.innerHeight;
+			viz.elm.width = window.innerWidth - 1;
+			viz.width = viz.elm.width;
+			viz.height = viz.elm.height;
+			viz.bar.maxHeight = Visual.getMaxHeight();
+			// Dynamically adjust bar width to fit the entire visualization within the canvas
+			viz.bar.width = viz.width / (viz.bufferLength * 2);
+			// Calculate an offset to center the visualization if needed
+			Visual.xOffset = 0; // Reset offset, will be recalculated in rendering methods if necessary
+		}
 	}
 	/**
 	 * Entry point to perform the rendering.
@@ -397,7 +404,9 @@ class Visual {
 			Visual.playLyrics();
 			viz.ana.getFloatFrequencyData(viz.dataArray);
 			if(!Visual.ghost)
-				viz.ctx.clearRect(0,0,viz.width,viz.height);
+				viz.ctx.clearRect(0, 0, viz.width, viz.height);
+			Visual.progBarElm.update();
+			Visual.progBarElm.render();
 			Visual.#calculateColors();
 			let tre=0;
 			switch(Visual.currentDesign) {
@@ -743,8 +752,11 @@ class Visual {
 				Visual.color.fades.start=false;
 				viz.bar.color.r=Visual.color.saved.r;
 				viz.bar.color.g=Visual.color.saved.g;
-				viz.bar.color.b=Visual.color.saved.b;
-				document.getElementById("head").style.backgroundColor="rgb(255,50,100)";
+				viz.bar.color.b = Visual.color.saved.b;
+				this.progBarElm.color.red = 255;
+				this.progBarElm.color.green = 50;
+				this.progBarElm.color.blue = 100;
+				//document.getElementById("head").style.backgroundColor="rgb(255,50,100)";
 			}
 		}
 	}
