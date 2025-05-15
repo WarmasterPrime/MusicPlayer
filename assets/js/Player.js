@@ -165,6 +165,17 @@ class Player {
 				meInstance.volume-=1;
 		});
 	}
+
+	#updateVisualOfProgressBar(state = false) {
+		Visual.progBar.setHidden(state);
+	}
+
+	updateHead(override = false) {
+		if (this.isPlaying || override) {
+			// Update is now handled in Visual.render, this method just maintains compatibility
+			setTimeout(function () {meInstance.updateHead();}, 1);
+		}
+	}
 	
 	static mouseActionProcess(event, instance) {
 		if(event.buttons===8 || event.buttons===16) {

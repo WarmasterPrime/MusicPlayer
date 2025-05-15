@@ -5,7 +5,9 @@ var GV_Ran=false;
  * Controls the visualization of the audio visualizer and performs rendering operations.
  */
 class Visual {
-	
+
+	static progBar = new ProgressBar();
+
 	static last_measurement=0;
 	static base_speed=60;
 	static paused=true;
@@ -374,16 +376,16 @@ class Visual {
 	 */
 	static render()
 	{
-		let elm=document.getElementById("player");
-		let src=elm.currentSrc;
+		let elm = document.getElementById("player");
+		let src = elm.currentSrc;
 		Visual.getSongLyrics(SongInfo.getSongName(src), SongInfo.getArtist(src));
-		if(GV_Ran===false)
-		{
+		if (GV_Ran === false) {
 			Visual.ini();
-			GV_Ran=true;
+			GV_Ran = true;
 		}
 		Visual.postRender();
 		Visual.updateRenderDisplay();
+		Visual.progBar.update(elm.currentTime, elm.duration); // Update progress bar data
 	}
 	/**
 	 * Performs rendering caluclations and rendering operations.
@@ -396,10 +398,10 @@ class Visual {
 			requestAnimationFrame(Visual.postRender);
 			Visual.playLyrics();
 			viz.ana.getFloatFrequencyData(viz.dataArray);
-			if(!Visual.ghost)
-				viz.ctx.clearRect(0,0,viz.width,viz.height);
+			if (!Visual.ghost)
+				viz.ctx.clearRect(0, 0, viz.width, viz.height);
 			Visual.#calculateColors();
-			let tre=0;
+			let tre = 0;
 			switch(Visual.currentDesign) {
 				case "bar":
 					tre=Visual.#renderBars();
@@ -417,8 +419,8 @@ class Visual {
 					tre=Visual.#renderCurvedLines();
 					break;
 			}
-			let ard=tre/(150*viz.bufferLength);
-			//setTimeout(function(){Visual.#applyBarColor(ard);},0);
+			let ard = tre / (150 * viz.bufferLength);
+			Visual.progBar.render(viz.ctx, ard); // Render progress bar after other elements
 			if(GV_NewBG_State)
 			{
 				if(tre>0)
@@ -827,6 +829,62 @@ class Visual {
 	}
 	
 } // END OF VISUAL CLASS
+
+
+
+// ProgressBar class for rendering the progress bar on canvas
+class ProgressBar {
+	constructor() {
+		this.hidden = false;
+		this.width = 0;
+		this.height = 4; // Height of the progress bar
+		this.yPosition = window.innerHeight - 60; // Position above the bottom controls
+		this.color = {r: 255, g: 50, b: 100, a: 1}; // Default color
+		this.filter = ""; // For drop shadow effects
+	}
+
+	update(currentTime, duration) {
+		if (!isNaN(currentTime) && !isNaN(duration) && duration > 0) {
+			// Calculate width based on song progress and window width
+			let progress = currentTime / duration;
+			this.width = progress * window.innerWidth;
+		}
+	}
+
+	setHidden(state) {
+		this.hidden = state;
+	}
+
+	setBackgroundColor(colorStr) {
+		// Parse rgb(r,g,b) format if provided
+		if (colorStr.startsWith("rgb(")) {
+			let matches = colorStr.match(/\d+/g);
+			if (matches && matches.length >= 3) {
+				this.color.r = parseInt(matches[0]);
+				this.color.g = parseInt(matches[1]);
+				this.color.b = parseInt(matches[2]);
+			}
+		}
+	}
+
+	setFilter(filterStr) {
+		this.filter = filterStr;
+	}
+
+	render(ctx, ard) {
+		if (this.hidden) return;
+
+		// Update y position based on current window height
+		this.yPosition = window.innerHeight - 60;
+
+		// Draw progress bar
+		ctx.fillStyle = `rgba(${Math.abs(Math.floor(Visual.color.red * 150))}, ${Math.abs(Math.floor(Visual.color.green * 150))}, ${Math.abs(Math.floor(Visual.color.blue * 150))}, ${this.color.a})`;
+		ctx.fillRect(0, this.yPosition, this.width, this.height);
+	}
+}
+
+
+
 document.getElementById("player").addEventListener("pause",function(){Visual.paused=true;});
 document.getElementById("player").addEventListener("play",function(){Visual.paused=false;});
 document.getElementById("ghost").addEventListener("click",function(){

@@ -478,6 +478,13 @@ document.getElementsByTagName("body")[0].addEventListener("keydown",function(eve
 		document.getElementById("player").volume-=0.01;
 });
 */
+function startAudio() {
+	let list = document.getElementsByTagName("canvas");
+	if (list.length > 0)
+		list[0].focus();
+	// Progress bar update is now handled in Visual.render
+	Visual.render();
+}
 /*
 function updateHead()
 {
