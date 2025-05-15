@@ -381,13 +381,6 @@ function toggleSn(q=false)
 	UrlParams.SetParam("hideSongName", state);
 }
 
-function toggleBar(q=false)
-{
-	const state=!q.checked;
-	document.getElementById("bar").hidden=state;
-	UrlParams.SetParam("hideBar", state);
-}
-
 
 
 function loadBg()
@@ -429,25 +422,36 @@ function toggleSongLyrics(elm=false) {
 	document.getElementById("caption").style.opacity=elm.checked ? 1 : 0;
 }
 
-function toggleFade(elm=false)
-{
-	if(elm.checked===true)
-	{
-		GV_colorStorage={
-			"red":Visual.color.red,
-			"green":Visual.color.green,
-			"blue":Visual.color.blue
-		};
-		Visual.color.fade=true;
+function toggleBar(q = false) {
+	const state = !q.checked;
+	if (Visual.progressBar) {
+		Visual.progressBar.setVisible(!state);
 	}
-	else
-	{
-		Visual.color.fade=false;
-		setTimeout(function(){
-			Visual.color["red"]=GV_colorStorage["red"];
-			Visual.color["green"]=GV_colorStorage["green"];
-			Visual.color["blue"]=GV_colorStorage["blue"];
-		},100);
+	UrlParams.SetParam("hideBar", state);
+}
+
+function toggleFade(elm = false) {
+	if (elm.checked === true) {
+		GV_colorStorage = {
+			"red": Visual.color.red,
+			"green": Visual.color.green,
+			"blue": Visual.color.blue
+		};
+		Visual.color.fade = true;
+		if (Visual.progressBar) {
+			Visual.progressBar.setFadeEffect(true);
+		}
+	}
+	else {
+		Visual.color.fade = false;
+		if (Visual.progressBar) {
+			Visual.progressBar.setFadeEffect(false);
+		}
+		setTimeout(function () {
+			Visual.color["red"] = GV_colorStorage["red"];
+			Visual.color["green"] = GV_colorStorage["green"];
+			Visual.color["blue"] = GV_colorStorage["blue"];
+		}, 100);
 	}
 }
 /*

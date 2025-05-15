@@ -177,36 +177,31 @@ class Player {
 	}
 	
 	/**
-	 * Sets the display state of the progressbar element (If it should be shown or hidden).
-	 * @param {boolean} state A boolean representing the state of the progressbar element display.
-	 */
-	#updateVisualOfProgressBar(state=false) {
-		this.progressBarElement.hidden=state;
-	}
-	/**
 	 * Updates the playhead indicator's (AKA progressbar) position in the song relative to the width of the page.
 	 * @param {boolean} override (Default: false) A boolean representing if it should override the "isPlaying" property of this class.
 	 */
-	updateHead(override=false) {
-		//console.log(this.isPlaying);
-		if(this.isPlaying || override) {
-			//console.log("PASSED");
-			let start=this.currentTime;
-			let end=this.duration;
-			let stat=(start/end) * window.innerWidth;
-			this.progressBarElement.style.width=stat+"px";
-			//let stat=((start/end)*100);
-			//this.progressBarElement.style.width=stat+"%";
-			let meInstance=this;
-			if(stat>window.innerWidth) {
-				this.progressBarElement.style.transitionDuration="0.5s";
-				this.progressBarElement.style.WebKitTransitionDuration="0.5s";
-				setTimeout(function(){
-					meInstance.progressBarElement.style.transitionDuration="0.0s";
-					meInstance.progressBarElement.style.WebKitTransitionDuration="0.0s";
-				},500);
+	updateHead(override = false) {
+		if (this.isPlaying || override) {
+			let start = this.currentTime;
+			let end = this.duration;
+			let progress = start / end;
+
+			// Update the canvas-based progress bar
+			if (Visual.progressBar) {
+				Visual.progressBar.setProgress(progress);
 			}
-			setTimeout(function(){meInstance.updateHead();},1);
+
+			let meInstance = this;
+			setTimeout(function () {meInstance.updateHead();}, 1);
+		}
+	}
+	/**
+	 * Sets the display state of the progressbar element (If it should be shown or hidden).
+	 * @param {boolean} state A boolean representing the state of the progressbar element display.
+	 */
+	#updateVisualOfProgressBar(state = false) {
+		if (Visual.progressBar) {
+			Visual.progressBar.setVisible(!state);
 		}
 	}
 	/**

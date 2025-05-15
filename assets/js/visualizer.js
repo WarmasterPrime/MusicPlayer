@@ -827,6 +827,141 @@ class Visual {
 	}
 	
 } // END OF VISUAL CLASS
+
+
+/**
+ * Represents a progress bar that can be rendered on a canvas
+ */
+class ProgressBar {
+	/**
+	 * Creates a new progress bar instance
+	 * @param {number} y - The y position of the progress bar
+	 * @param {number} height - The height of the progress bar
+	 * @param {number} padding - Padding from the sides of the canvas
+	 */
+	constructor(y = 65, height = 4, padding = 0) {
+		this.y = y;
+		this.height = height;
+		this.padding = padding;
+		this.progress = 0; // 0 to 1
+		this.visible = true;
+		this.color = {
+			r: 250,
+			g: 50,
+			b: 25
+		};
+		this.fadeEffect = false;
+		this.shadowColor = "rgba(250, 50, 25, 0.5)";
+	}
+
+	/**
+	 * Updates the progress value (0-1)
+	 * @param {number} value - Progress value between 0 and 1
+	 */
+	setProgress(value) {
+		this.progress = Math.max(0, Math.min(1, value));
+	}
+
+	/**
+	 * Sets the visibility of the progress bar
+	 * @param {boolean} visible - Whether the progress bar should be visible
+	 */
+	setVisible(visible) {
+		this.visible = visible;
+	}
+
+	/**
+	 * Updates the color of the progress bar
+	 * @param {object} color - Color object with r, g, b properties
+	 * @param {number} alpha - Alpha value for shadow effects
+	 */
+	setColor(color, alpha = 0.5) {
+		this.color = color;
+		this.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+	}
+
+	/**
+	 * Enables or disables the fade effect
+	 * @param {boolean} enabled - Whether the fade effect should be enabled
+	 */
+	setFadeEffect(enabled) {
+		this.fadeEffect = enabled;
+	}
+
+	/**
+	 * Renders the progress bar on the canvas
+	 * @param {CanvasRenderingContext2D} ctx - The canvas rendering context
+	 * @param {number} width - The width of the canvas
+	 */
+	render(ctx, width) {
+		if (!this.visible) return;
+
+		const barWidth = width - (this.padding * 2);
+		const progressWidth = barWidth * this.progress;
+
+		// Save the current context state
+		ctx.save();
+
+		// Apply shadow effects if fade is enabled
+		if (this.fadeEffect) {
+			ctx.shadowColor = this.shadowColor;
+			ctx.shadowBlur = 10;
+			ctx.shadowOffsetX = 0;
+			ctx.shadowOffsetY = 0;
+		}
+
+		// Draw the progress bar
+		ctx.fillStyle = `rgb(${this.color.r}, ${this.color.g}, ${this.color.b})`;
+		ctx.fillRect(this.padding, this.y, progressWidth, this.height);
+
+		// Restore the context state
+		ctx.restore();
+	}
+}
+
+// Add to Visual class
+Visual.progressBar = new ProgressBar();
+
+// Modify the Visual.render method to include progress bar rendering
+const originalRender = Visual.render;
+Visual.render = function () {
+	const result = originalRender.apply(this, arguments);
+
+	// Initialize the progress bar if not already done
+	if (!Visual.progressBar) {
+		Visual.progressBar = new ProgressBar();
+	}
+
+	return result;
+};
+
+// Modify the postRender method to include progress bar rendering
+const originalPostRender = Visual.postRender;
+Visual.postRender = function () {
+	// Call the original method
+	const result = originalPostRender.apply(this, arguments);
+
+	// Update progress bar color from the current visualization color
+	if (viz && viz.bar && viz.bar.color) {
+		Visual.progressBar.setColor({
+			r: Math.floor(viz.bar.color.r * 100),
+			g: Math.floor(viz.bar.color.g * 100),
+			b: Math.floor(viz.bar.color.b * 100)
+		});
+
+		// Set fade effect based on the global fade setting
+		Visual.progressBar.setFadeEffect(Visual.color.fade);
+	}
+
+	// Render the progress bar after the visualization
+	if (viz && viz.ctx) {
+		Visual.progressBar.render(viz.ctx, viz.width);
+	}
+
+	return result;
+};
+
+
 document.getElementById("player").addEventListener("pause",function(){Visual.paused=true;});
 document.getElementById("player").addEventListener("play",function(){Visual.paused=false;});
 document.getElementById("ghost").addEventListener("click",function(){
