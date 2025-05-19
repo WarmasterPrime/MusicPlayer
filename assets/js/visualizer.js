@@ -1,4 +1,4 @@
-// 
+﻿// 
 var viz={};
 var GV_Ran=false;
 /**
@@ -496,12 +496,7 @@ class Visual {
 	 */
 	static #renderLines() {
 		let o = viz.bufferLength;
-		let i = 0, u = 0, tre = 0, toff = 150, x = 0;
-		let totalVisWidth = viz.bar.width * (viz.bufferLength * 2);
-		let startX = (viz.width - totalVisWidth) / 2; // Center the visualization
-		x = startX;
-		let xx = startX + totalVisWidth / 2;
-		let ii = viz.bufferLength - viz.bar.width;
+		let i = 0, u = 0, xx = (viz.bar.width + 1) * (viz.bufferLength + Visual.xOffset), tre = 0, toff = 150, x = 0, ii = viz.bufferLength - viz.bar.width;
 		let tcl = 100;
 		viz.ctx.lineWidth = 2;
 		let tmpData = [];
@@ -510,10 +505,10 @@ class Visual {
 		let colorCalc = Color.createFromRGB(0, 0, 0);
 		if (Visual.fillPolygon) {
 			region = new Path2D();
-			region.moveTo(startX, viz.height);
+			region.moveTo(0, viz.height);
 		} else {
 			viz.ctx.beginPath();
-			viz.ctx.moveTo(startX, viz.height);
+			viz.ctx.moveTo(0, viz.height);
 		}
 		for (o = viz.bufferLength; o > -1; o--) {
 			colorCalc = Color.createFromRGB(0, 0, 0);
@@ -530,7 +525,7 @@ class Visual {
 				viz.ctx.strokeStyle = colorCalc.toString();
 				viz.ctx.lineTo(tmpX, tmpY);
 			}
-			x += viz.bar.width;
+			x += viz.bar.width + 1;
 			i++;
 			y = ((viz.dataArray[u] + toff) / viz.bar.height) * viz.bar.maxHeight;
 			calc = (y / viz.height) * 256;
@@ -540,68 +535,118 @@ class Visual {
 			if (viz.dataArray[u])
 				tre += viz.dataArray[u] + toff;
 			u++;
-			xx += viz.bar.width;
+			xx += viz.bar.width + 1;
 			ii++;
 		}
-		// ... existing code for the rest of the method ...
+		for (let itu = 0; itu < tmpData.length; itu++) {
+			if (Visual.fillPolygon)
+				region.lineTo(tmpData[itu].x, tmpData[itu].y);
+			else {
+				viz.ctx.strokeStyle = "rgb(" + (viz.bar.color.r * tmpData[itu].calc) + "," + (viz.bar.color.g * tmpData[itu].calc) + "," + (viz.bar.color.b * tmpData[itu].calc) + ")";
+				viz.ctx.lineTo(tmpData[itu].x, tmpData[itu].y);
+			}
+		}
+		if (Visual.fillPolygon) {
+			region.lineTo(Visual.width, Visual.height);
+			region.closePath();
+			viz.ctx.fillStyle = colorCalc.toString();
+			viz.ctx.fill(region);
+		} else {
+			viz.ctx.lineTo(Visual.width, Visual.height);
+			viz.ctx.strokeStyle = colorCalc.toString();
+			viz.ctx.stroke();
+		}
 		return tre;
-
 	}
 	/**
 	 * Renders the lines.
 	 */
 	static #renderCurvedLines() {
-		let o=viz.bufferLength;
-		let i=0, u=0, xx=(viz.bar.width+1)*(viz.bufferLength+Visual.xOffset), tre=0, toff=150, x=0, ii=viz.bufferLength-viz.bar.width;
+		let o = viz.bufferLength;
+		let i = 0, u = 0, tre = 0, toff = 150, counter = 0;
+		let totalWidth = (viz.bar.width + 1) * (viz.bufferLength * 2);
+		let startX = (viz.width - totalWidth) / 2;
+		let ii = viz.bufferLength - viz.bar.width;
+
+		let x = startX;
+		let xx = startX + ((viz.bar.width + 1) * viz.bufferLength);
+
 		viz.ctx.beginPath();
-		viz.ctx.moveTo(0, viz.height);
-		let tcl=100;
-		viz.ctx.lineWidth=2;
-		let tmpData=[];
-		let counter=0;
-		let lastData={};
-		let color=Color.createFromRGB(0,0,0);
-		for(o=viz.bufferLength;o>=0;o--) {
-			let y=((viz.dataArray[o]+toff)/viz.bar.height)*viz.bar.maxHeight;
-			let calc=(y/viz.height)*256;
-			color.red=viz.bar.color.r*calc;
-			color.green=viz.bar.color.g*calc;
-			color.blue=viz.bar.color.b*calc;
-			viz.ctx.strokeStyle=color.toString();
-			let tmpX=x+(i*Visual.xOffset);
-			let tmpY=viz.height-y;
-			if(counter>0 && counter%2===0) {
+		viz.ctx.moveTo(startX, viz.height);
+		let tcl = 100;
+		viz.ctx.lineWidth = 2;
+
+		let tmpData = [];
+		let lastData = {};
+		let color = Color.createFromRGB(0, 0, 0);
+
+		for (o = viz.bufferLength; o >= 0; o--) {
+			let y = ((viz.dataArray[o] + toff) / viz.bar.height) * viz.bar.maxHeight;
+			let calc = (y / viz.height) * 256;
+
+			color.red = viz.bar.color.r * calc;
+			color.green = viz.bar.color.g * calc;
+			color.blue = viz.bar.color.b * calc;
+			viz.ctx.strokeStyle = color.toString();
+
+			let tmpX = x + (i * Visual.xOffset);
+			let tmpY = viz.height - y;
+
+			if (counter > 0 && counter % 2 === 0) {
 				viz.ctx.quadraticCurveTo(lastData.x, lastData.y, tmpX, tmpY);
 				viz.ctx.moveTo(tmpX, tmpY);
 			}
-			lastData={x:tmpX, y:tmpY};
-			
-			x+=viz.bar.width+1;
+			lastData = {x: tmpX, y: tmpY};
+
+			x += viz.bar.width + 1;
 			i++;
-			y=((viz.dataArray[u]+toff)/viz.bar.height)*viz.bar.maxHeight;
-			calc=(y/viz.height)*256;
-			color=Color.createFromRGB(viz.bar.color.r*calc, viz.bar.color.g*calc, viz.bar.color.b*calc);
-			viz.ctx.strokeStyle=color.toString();
-			tmpData.push({x:xx+(ii*Visual.xOffset), y:viz.height-y, color:color});
-			if (viz.dataArray[u])
-				tre+=viz.dataArray[u]+toff;
+
+			y = ((viz.dataArray[u] + toff) / viz.bar.height) * viz.bar.maxHeight;
+			calc = (y / viz.height) * 256;
+
+			color = Color.createFromRGB(
+				viz.bar.color.r * calc,
+				viz.bar.color.g * calc,
+				viz.bar.color.b * calc
+			);
+			viz.ctx.strokeStyle = color.toString();
+
+			tmpData.push({
+				x: xx + (ii * Visual.xOffset),
+				y: viz.height - y,
+				color: color
+			});
+
+			if (viz.dataArray[u]) tre += viz.dataArray[u] + toff;
+
 			u++;
-			xx+=viz.bar.width+1;
+			xx += viz.bar.width + 1;
 			ii++;
 			counter++;
 		}
-		let itu=0;
-		for(itu=0;itu<tmpData.length;itu++) {
-			if(itu>0 && itu%2===0) {
-				viz.ctx.strokeStyle=tmpData[itu].color.toString();
-				viz.ctx.quadraticCurveTo(lastData.x, lastData.y, tmpData[itu].x, tmpData[itu].y);
+
+		let itu = 0;
+		for (itu = 0; itu < tmpData.length; itu++) {
+			if (itu > 0 && itu % 2 === 0) {
+				viz.ctx.strokeStyle = tmpData[itu].color.toString();
+				viz.ctx.quadraticCurveTo(
+					lastData.x,
+					lastData.y,
+					tmpData[itu].x,
+					tmpData[itu].y
+				);
 				viz.ctx.moveTo(tmpData[itu].x, tmpData[itu].y);
 			}
-			lastData={x:tmpData[itu].x, y:tmpData[itu].y};
+			lastData = {
+				x: tmpData[itu].x,
+				y: tmpData[itu].y
+			};
 		}
+
 		viz.ctx.quadraticCurveTo(lastData.x, lastData.y, window.innerWidth, window.innerHeight);
 		viz.ctx.quadraticCurveTo(window.innerWidth, window.innerHeight, window.innerWidth * 1.1, window.innerHeight * 1.1);
 		viz.ctx.stroke();
+
 		return tre;
 	}
 	/**
