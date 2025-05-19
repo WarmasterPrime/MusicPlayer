@@ -551,53 +551,57 @@ class Visual {
 	 * Renders the lines.
 	 */
 	static #renderCurvedLines() {
-		let o=viz.bufferLength;
-		let i=0, u=0, xx=(viz.bar.width+1)*(viz.bufferLength+Visual.xOffset), tre=0, toff=150, x=0, ii=viz.bufferLength-viz.bar.width;
+		let o = viz.bufferLength;
+		let i = 0, u = 0, tre = 0, toff = 150, x = 0, ii = viz.bufferLength - viz.bar.width;
+		// Calculate total width of visualization to center it
+		let totalVisWidth = (viz.bar.width + 1) * (viz.bufferLength * 2);
+		let startX = (viz.width - totalVisWidth) / 2; // Center the visualization
+		x = startX; // Set initial x position to centered start
+		let xx = startX + totalVisWidth / 2; // Midpoint for mirrored effect
 		viz.ctx.beginPath();
-		viz.ctx.moveTo(0, viz.height);
-		let tcl=100;
-		viz.ctx.lineWidth=2;
-		let tmpData=[];
-		let counter=0;
-		let lastData={};
-		let color=Color.createFromRGB(0,0,0);
-		for(o=viz.bufferLength;o>=0;o--) {
-			let y=((viz.dataArray[o]+toff)/viz.bar.height)*viz.bar.maxHeight;
-			let calc=(y/viz.height)*256;
-			color.red=viz.bar.color.r*calc;
-			color.green=viz.bar.color.g*calc;
-			color.blue=viz.bar.color.b*calc;
-			viz.ctx.strokeStyle=color.toString();
-			let tmpX=x+(i*Visual.xOffset);
-			let tmpY=viz.height-y;
-			if(counter>0 && counter%2===0) {
+		viz.ctx.moveTo(startX, viz.height); // Adjusted to start at centered position
+		let tcl = 100;
+		viz.ctx.lineWidth = 2;
+		let tmpData = [];
+		let counter = 0;
+		let lastData = {};
+		let color = Color.createFromRGB(0, 0, 0);
+		for (o = viz.bufferLength; o >= 0; o--) {
+			let y = ((viz.dataArray[o] + toff) / viz.bar.height) * viz.bar.maxHeight;
+			let calc = (y / viz.height) * 256;
+			color.red = viz.bar.color.r * calc;
+			color.green = viz.bar.color.g * calc;
+			color.blue = viz.bar.color.b * calc;
+			viz.ctx.strokeStyle = color.toString();
+			let tmpX = x + (i * Visual.xOffset);
+			let tmpY = viz.height - y;
+			if (counter > 0 && counter % 2 === 0) {
 				viz.ctx.quadraticCurveTo(lastData.x, lastData.y, tmpX, tmpY);
 				viz.ctx.moveTo(tmpX, tmpY);
 			}
-			lastData={x:tmpX, y:tmpY};
-			
-			x+=viz.bar.width+1;
+			lastData = {x: tmpX, y: tmpY};
+			x += viz.bar.width + 1;
 			i++;
-			y=((viz.dataArray[u]+toff)/viz.bar.height)*viz.bar.maxHeight;
-			calc=(y/viz.height)*256;
-			color=Color.createFromRGB(viz.bar.color.r*calc, viz.bar.color.g*calc, viz.bar.color.b*calc);
-			viz.ctx.strokeStyle=color.toString();
-			tmpData.push({x:xx+(ii*Visual.xOffset), y:viz.height-y, color:color});
+			y = ((viz.dataArray[u] + toff) / viz.bar.height) * viz.bar.maxHeight;
+			calc = (y / viz.height) * 256;
+			color = Color.createFromRGB(viz.bar.color.r * calc, viz.bar.color.g * calc, viz.bar.color.b * calc);
+			viz.ctx.strokeStyle = color.toString();
+			tmpData.push({x: xx + (ii * Visual.xOffset), y: viz.height - y, color: color});
 			if (viz.dataArray[u])
-				tre+=viz.dataArray[u]+toff;
+				tre += viz.dataArray[u] + toff;
 			u++;
-			xx+=viz.bar.width+1;
+			xx += viz.bar.width + 1;
 			ii++;
 			counter++;
 		}
-		let itu=0;
-		for(itu=0;itu<tmpData.length;itu++) {
-			if(itu>0 && itu%2===0) {
-				viz.ctx.strokeStyle=tmpData[itu].color.toString();
+		let itu = 0;
+		for (itu = 0; itu < tmpData.length; itu++) {
+			if (itu > 0 && itu % 2 === 0) {
+				viz.ctx.strokeStyle = tmpData[itu].color.toString();
 				viz.ctx.quadraticCurveTo(lastData.x, lastData.y, tmpData[itu].x, tmpData[itu].y);
 				viz.ctx.moveTo(tmpData[itu].x, tmpData[itu].y);
 			}
-			lastData={x:tmpData[itu].x, y:tmpData[itu].y};
+			lastData = {x: tmpData[itu].x, y: tmpData[itu].y};
 		}
 		viz.ctx.quadraticCurveTo(lastData.x, lastData.y, window.innerWidth, window.innerHeight);
 		viz.ctx.quadraticCurveTo(window.innerWidth, window.innerHeight, window.innerWidth * 1.1, window.innerHeight * 1.1);
