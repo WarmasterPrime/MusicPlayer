@@ -684,44 +684,70 @@ class Visual {
 	 * Renders the audio visualizer as bar designs.
 	 */
 	static #renderVerticalLines() {
-		let o=viz.bufferLength;
-		let i=0, u=0, xx=(viz.bar.width+1)*(viz.bufferLength-1.025), tre=0, toff=150, x=0, ii=viz.bufferLength-viz.bar.width;
-		viz.ctx.beginPath();
-		viz.ctx.moveTo(0, viz.height);
-		let tcl=100;
-		viz.ctx.lineWidth=2;
-		let tmpData=[];
-		for(o=viz.bufferLength;o>-1;o--) {
-			let y=((viz.dataArray[o]+toff)/viz.bar.height)*viz.bar.maxHeight;
-			let calc=(y/viz.height)*256;
-			viz.ctx.strokeStyle="rgb("+(viz.bar.color.r*calc)+","+(viz.bar.color.g*calc)+","+(viz.bar.color.b*calc)+")";
-			let tmpX=x+(i*-1.025);
-			let tmpY=viz.height-y;
-			viz.ctx.lineTo(tmpX, tmpY);
-			viz.ctx.moveTo(tmpX + viz.bar.width, tmpY+viz.height);
-			x+=viz.bar.width+1;
-			i++;
-			y=((viz.dataArray[u]+toff)/viz.bar.height)*viz.bar.maxHeight;
-			calc=(y/viz.height)*256;
-			viz.ctx.strokeStyle="rgb("+(viz.bar.color.r*calc)+","+(viz.bar.color.g*calc)+","+(viz.bar.color.b*calc)+")";
-			let altX=xx+(ii*-1.025);
-			let altY=viz.height-y;
-			tmpData.push({x:altX, y:altY});
-			if (viz.dataArray[u])
-				tre+=viz.dataArray[u]+toff;
-			u++;
-			xx+=viz.bar.width+1;
-			ii++;
-		}
-		let itu;
-		for(itu=0;itu<tmpData.length;itu++) {
-			viz.ctx.moveTo(tmpData[itu].x+viz.bar.width, tmpData[itu].y+viz.height);
-			viz.ctx.lineTo(tmpData[itu].x, tmpData[itu].y);
-		}
-		itu--;
-		viz.ctx.moveTo(tmpData[itu].x, tmpData[itu].y);
-		viz.ctx.lineTo(viz.width, viz.height);
-		viz.ctx.stroke();
+		-   let o = viz.bufferLength;
+		-   let i = 0, u = 0, xx = (viz.bar.width + 1) * (viz.bufferLength - 1.025), tre = 0, toff = 150, x = 0, ii = viz.bufferLength - viz.bar.width;
+		-   viz.ctx.beginPath();
+		-   viz.ctx.moveTo(0, viz.height);
+		-   let tcl = 100;
+		-   viz.ctx.lineWidth=2;
+		-   let tmpData = [];
+		+   let o = viz.bufferLength;
+		+   let i = 0, u = 0, tre = 0, toff = 150, x = 0;
+		+   // Center the visualization
+			+   let totalVisWidth = viz.bar.width * (viz.bufferLength * 2);
+		+   let startX = (viz.width - totalVisWidth) / 2;
+		+   x = startX;
+		+   let xx = startX + totalVisWidth / 2;
+		+   let ii = viz.bufferLength - viz.bar.width;
+
+		-   for (o = viz.bufferLength; o > -1; o--) {
+			-       let y = ((viz.dataArray[o] + toff) / viz.bar.height) * viz.bar.maxHeight;
+			-       let calc = (y / viz.height) * 256;
+			-       viz.ctx.strokeStyle="rgb(" + (viz.bar.color.r * calc) + "," + (viz.bar.color.g * calc) + "," + (viz.bar.color.b * calc) + ")";
+			-       let tmpX = x + (i * -1.025);
+			-       let tmpY = viz.height - y;
+			-       viz.ctx.lineTo(tmpX, tmpY);
+			-       viz.ctx.moveTo(tmpX + viz.bar.width, tmpY + viz.height);
+			-       x+=viz.bar.width + 1;
+			-       i++;
+			-       y=((viz.dataArray[u] + toff) / viz.bar.height) * viz.bar.maxHeight;
+			-       calc=(y / viz.height) * 256;
+			-       viz.ctx.strokeStyle="rgb(" + (viz.bar.color.r * calc) + "," + (viz.bar.color.g * calc) + "," + (viz.bar.color.b * calc) + ")";
+			-       let altX = xx + (ii * -1.025);
+			-       let altY = viz.height - y;
+			-       tmpData.push({x: altX, y: altY});
+			-       if (viz.dataArray[u])
+				-           tre+=viz.dataArray[u] + toff;
+			-       u++;
+			-       xx+=viz.bar.width + 1;
+			-       ii++;
+			-   }
+		-   let itu;
+		-   for (itu = 0; itu < tmpData.length; itu++) {
+			-       viz.ctx.moveTo(tmpData[itu].x + viz.bar.width, tmpData[itu].y + viz.height);
+			-       viz.ctx.lineTo(tmpData[itu].x, tmpData[itu].y);
+			-   }
+		-   itu--;
+		-   viz.ctx.moveTo(tmpData[itu].x, tmpData[itu].y);
+		-   viz.ctx.lineTo(viz.width, viz.height);
+		-   viz.ctx.stroke();
+		+   for (o = viz.bufferLength; o > -1; o--) {
+			+       let y = ((viz.dataArray[o] + toff) / viz.bar.height) * viz.bar.maxHeight;
+			+       let calc = (y / viz.height) * 256;
+			+       viz.ctx.fillStyle = "rgb(" + (viz.bar.color.r * calc) + "," + (viz.bar.color.g * calc) + "," + (viz.bar.color.b * calc) + ")";
+			+       viz.ctx.fillRect(x, viz.height - y, viz.bar.width, y); // Draw left side
+			+       x += viz.bar.width;
+			+       i++;
+			+       y = ((viz.dataArray[u] + toff) / viz.bar.height) * viz.bar.maxHeight;
+			+       calc = (y / viz.height) * 256;
+			+       viz.ctx.fillStyle = "rgb(" + (viz.bar.color.r * calc) + "," + (viz.bar.color.g * calc) + "," + (viz.bar.color.b * calc) + ")";
+			+       viz.ctx.fillRect(xx, viz.height - y, viz.bar.width, y); // Draw right side
+			+       if (viz.dataArray[u])
+				+           tre += viz.dataArray[u] + toff;
+			+       u++;
+			+       xx += viz.bar.width;
+			+       ii++;
+			+   }
 		return tre;
 	}
 	/**
