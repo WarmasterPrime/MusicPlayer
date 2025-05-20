@@ -405,7 +405,7 @@ class Visual {
 			viz.ana.getFloatFrequencyData(viz.dataArray);
 			if(!Visual.ghost)
 				viz.ctx.clearRect(0, 0, viz.width, viz.height);
-			Visual.progBarElm.update();
+			Visual.progBarElm.update(
 			Visual.progBarElm.render();
 			Visual.#calculateColors();
 			let tre=0;
