@@ -7,6 +7,7 @@ class audioLib {
 	static path = window.location.protocol + "//" + window.location.hostname + "/files/Music/";
 	static song = "";
 	static sntmp = false;
+	static currentSongId = "";
 
 	static temp;
 

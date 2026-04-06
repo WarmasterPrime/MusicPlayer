@@ -1,0 +1,52 @@
+/* Toggle switch component */
+.toggle-switch {
+	position: relative;
+	display: inline-block;
+	width: 36px;
+	height: 20px;
+	vertical-align: middle;
+}
+.toggle-switch input {
+	opacity: 0;
+	width: 0;
+	height: 0;
+	position: absolute;
+}
+.toggle-switch .slider {
+	position: absolute;
+	cursor: pointer;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: rgba(80, 80, 80, 0.6);
+	border-radius: 20px;
+	transition: background-color 0.25s;
+}
+.toggle-switch .slider:before {
+	content: "";
+	position: absolute;
+	height: 14px;
+	width: 14px;
+	left: 3px;
+	bottom: 3px;
+	background-color: #FFF;
+	border-radius: 50%;
+	transition: transform 0.25s;
+}
+.toggle-switch input:checked + .slider {
+	background-color: var(--accent-hover, rgba(255, 50, 100, 0.8));
+}
+.toggle-switch input:checked + .slider:before {
+	transform: translateX(16px);
+}
+
+.toggle-label {
+	color: var(--text-primary, #FFF);
+	font-family: arial, sans-serif;
+	font-size: 12px;
+	margin-left: 4px;
+	cursor: pointer;
+	user-select: none;
+	vertical-align: middle;
+}

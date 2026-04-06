@@ -47,6 +47,7 @@ function initial()
 	var elm,temp;
 	if(document.getElementById("player"))
 	{
+		Modal.ini();
 		audioLib.ini();
 		let t=false;
 		let p=true;
@@ -130,18 +131,37 @@ function checkSong()
 		if(Object.keys(obj).length>0)
 		{
 			let q=obj["song"];
-			if(q.includes(window.location.hostname))
-				q=q.replace(/[A-z\.\_\/\-\:]+Music/i,"");
-			q=decodeURI(q);
-			if(q.substring(0,1)==="/")
-				q=q.substring(1,q.length);
-			if(q.substring(q.length-1,q.length)==="/")
-				q=q.substring(0,q.length-1);
-			let tmp=q.substring(q.length-5,q.length);
-			if(tmp.includes(".mp3") || tmp.includes(".m4a") || tmp.includes("mp4"))
-				player.play(q);
-			else
-				player.select(q);
+			let isSongId = !q.includes("/") && !q.includes(".") && !q.includes(window.location.hostname);
+			if(isSongId) {
+				audioLib.currentSongId = q;
+				let a = {
+					"src": "assets/php/getSongById.php",
+					"args": { "song_id": q }
+				};
+				Server.send(a, true, function(response) {
+					let data = audioLib.getValueFromServerResponse(response);
+					try {
+						if(typeof data === "string")
+							data = JSON.parse(data);
+					} catch(e) {}
+					if(data && data.success === true && data.song && data.song.path) {
+						player.play(data.song.path);
+					}
+				});
+			} else {
+				if(q.includes(window.location.hostname))
+					q=q.replace(/[A-z\.\_\/\-\:]+Music/i,"");
+				q=decodeURI(q);
+				if(q.substring(0,1)==="/")
+					q=q.substring(1,q.length);
+				if(q.substring(q.length-1,q.length)==="/")
+					q=q.substring(0,q.length-1);
+				let tmp=q.substring(q.length-5,q.length);
+				if(tmp.includes(".mp3") || tmp.includes(".m4a") || tmp.includes("mp4"))
+					player.play(q);
+				else
+					player.select(q);
+			}
 			if(obj["hideSongName"]!==undefined) {
 				document.getElementById("song-name").hidden=obj["hideSongName"]==="false" ? false : true;
 			}
@@ -199,13 +219,14 @@ function setupAudioPlay()
 function setSongHash() {
 	if(document.getElementById("player"))
 	{
-		let elm=document.getElementById("player");
-		let q=elm.src;
-		//if (q.indexOf("doft.ddns.net")!=-1)
-		//	q=q.replace(/[A-z\.\_\/\-\:]+Music/i,"");
-		q=encodeURI(decodeURI(q));
-		UrlParams.SetParam("song",q);
-		//window.location.hash=q;
+		if(typeof audioLib.currentSongId === "string" && audioLib.currentSongId.length > 0) {
+			UrlParams.SetParam("song", audioLib.currentSongId);
+		} else {
+			let elm=document.getElementById("player");
+			let q=elm.src;
+			q=encodeURI(decodeURI(q));
+			UrlParams.SetParam("song",q);
+		}
 	}
 }
 

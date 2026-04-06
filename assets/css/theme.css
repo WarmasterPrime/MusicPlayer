@@ -1,0 +1,48 @@
+/* Dark theme (default) */
+:root,
+[data-theme="dark"] {
+	--bg-primary: rgba(20, 20, 40, 1);
+	--bg-secondary: rgba(30, 30, 60, 0.95);
+	--bg-tertiary: rgba(0, 0, 0, 0.4);
+	--text-primary: #FFFFFF;
+	--text-secondary: rgba(255, 255, 255, 0.7);
+	--text-muted: rgba(255, 255, 255, 0.4);
+	--accent: rgba(255, 50, 100, 1);
+	--accent-hover: rgba(255, 50, 100, 0.8);
+	--accent-bg: rgba(255, 50, 100, 0.3);
+	--accent-border: rgba(255, 50, 100, 0.3);
+	--accent-glow: rgba(255, 50, 100, 0.2);
+	--surface: rgba(255, 255, 255, 0.05);
+	--surface-hover: rgba(255, 50, 100, 0.2);
+	--overlay: rgba(0, 0, 0, 0.7);
+	--success: rgba(40, 180, 80, 0.9);
+	--error: rgba(220, 50, 50, 0.9);
+	--scrollbar-track: rgba(0, 0, 0, 0.2);
+	--scrollbar-thumb: rgba(255, 50, 100, 0.4);
+	--modal-bg: linear-gradient(135deg, rgba(30, 30, 60, 0.95), rgba(60, 20, 40, 0.95));
+	--input-bg: rgba(0, 0, 0, 0.4);
+}
+
+/* Light theme */
+[data-theme="light"] {
+	--bg-primary: rgba(240, 240, 245, 1);
+	--bg-secondary: rgba(255, 255, 255, 0.95);
+	--bg-tertiary: rgba(0, 0, 0, 0.06);
+	--text-primary: #222222;
+	--text-secondary: rgba(0, 0, 0, 0.6);
+	--text-muted: rgba(0, 0, 0, 0.35);
+	--accent: rgba(200, 30, 80, 1);
+	--accent-hover: rgba(200, 30, 80, 0.8);
+	--accent-bg: rgba(200, 30, 80, 0.15);
+	--accent-border: rgba(200, 30, 80, 0.3);
+	--accent-glow: rgba(200, 30, 80, 0.1);
+	--surface: rgba(0, 0, 0, 0.04);
+	--surface-hover: rgba(200, 30, 80, 0.12);
+	--overlay: rgba(0, 0, 0, 0.5);
+	--success: rgba(30, 150, 60, 0.9);
+	--error: rgba(200, 40, 40, 0.9);
+	--scrollbar-track: rgba(0, 0, 0, 0.08);
+	--scrollbar-thumb: rgba(200, 30, 80, 0.3);
+	--modal-bg: linear-gradient(135deg, rgba(245, 240, 248, 0.97), rgba(255, 235, 240, 0.97));
+	--input-bg: rgba(0, 0, 0, 0.06);
+}

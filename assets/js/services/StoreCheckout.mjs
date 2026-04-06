@@ -1,0 +1,65 @@
+import { Api } from "../Api.mjs";
+import { Toast } from "../Toast.mjs";
+
+/**
+ * Handles Stripe Checkout session creation and redirect.
+ */
+export class StoreCheckout {
+
+	/**
+	 * Creates a checkout session and redirects to Stripe.
+	 * @param {string} priceId - The Stripe price ID.
+	 * @param {string} mode - "subscription" or "payment".
+	 */
+	static async startCheckout(priceId, mode) {
+		Toast.success("Preparing checkout...");
+
+		try {
+			let result = await Api.send("assets/php/store/createCheckoutSession.php", {
+				"price_id": priceId,
+				"mode": mode || "subscription"
+			});
+
+			if (result && result.success && result.checkout_url) {
+				// Redirect to Stripe Checkout
+				window.location.href = result.checkout_url;
+			} else {
+				Toast.error(result.message || "Failed to create checkout session.");
+			}
+		} catch (e) {
+			Toast.error("Checkout error. Please try again.");
+		}
+	}
+
+	/**
+	 * Handles checkout callback URL parameters on page load.
+	 * Checks for ?checkout=success or ?checkout=cancel in the URL.
+	 */
+	static handleCallback() {
+		let params = new URLSearchParams(window.location.search);
+		let status = params.get("checkout");
+
+		if (status === "success") {
+			Toast.success("Payment successful! Thank you.");
+			// Clean up the URL
+			StoreCheckout.cleanUrl("checkout");
+		} else if (status === "cancel") {
+			Toast.error("Checkout was cancelled.");
+			StoreCheckout.cleanUrl("checkout");
+		} else if (status === "error") {
+			Toast.error("There was an error with your payment.");
+			StoreCheckout.cleanUrl("checkout");
+		}
+	}
+
+	/**
+	 * Removes a query parameter from the URL without reloading.
+	 * @param {string} param
+	 */
+	static cleanUrl(param) {
+		let url = new URL(window.location.href);
+		url.searchParams.delete(param);
+		let cleanedUrl = url.pathname + (url.search || "") + (url.hash || "");
+		window.history.replaceState({}, "", cleanedUrl);
+	}
+}

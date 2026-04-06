@@ -19,7 +19,7 @@
 	background-color:rgba(0,0,0,0.6);
 }
 
-.main-container:before {
+.main-container#bg {
 	clear:both;
 	content:"";
 	position:absolute;
@@ -27,11 +27,11 @@
 	left:0;
 	width:100%;
 	height:100%;
-	background-color:red;
 	background-image:url("http://doft.ddns.net/files/stream/bg.jpg");
-	background-size:200%;
+	background-size:cover;
+	/*background-size:200%;
 	background-position:100% 100%;
-	animation:bg-move var(--bg-d-) ease-in-out 0s infinite;
+	animation:bg-move var(--bg-d-) ease-in-out 0s infinite;*/
 }
 
 

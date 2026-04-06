@@ -1,89 +1,40 @@
 <?php
+require_once __DIR__ . "/System/Database.php";
 
-require_once("Music.php");
+header("Content-Type: application/json");
 
-if (isset($_POST["cmd"])) {
-	//print_r(getSong(parse($_POST["cmd"])));
-	print_r(Music::getRandomSong($_POST["cmd"]));
-} else if (isset($_GET["cmd"])) {
-	
-	//print_r(getSong(parse($_GET["cmd"])));
-	print_r(Music::getRandomSong($_GET["cmd"]));
-} else {
-	print_r(Music::getRandomSong(""));
+$exclude = null;
+$input = json_decode(file_get_contents("php://input"), true);
+if (isset($input["cmd"])) {
+	$exclude = $input["cmd"];
+} elseif (isset($_POST["cmd"])) {
+	$exclude = $_POST["cmd"];
+} elseif (isset($_GET["cmd"])) {
+	$exclude = $_GET["cmd"];
 }
 
+try {
+	$pdo = Database::connect("media");
 
-/*
-function parse($q=""){return preg_replace("/([^A-z0-9 \t\n\-\_\+\=\!\@\#\$\%\^\&\*\(\)\~\`\'\"\:;\[\{\]\}\|\?\<\>\,\.\/\\\\]*)/","",$q);}
-
-function getSong($q=false) {
-	$res="";
-	$dir="A:/wamp64/www/WebRoot/www/files/Music/";
-	$path="";
-	$i=0;
-	$list=scandir($dir);
-	$data=array();
-	while($i<count($list)){
-		if ($list[$i]!=="." && $list[$i]!=="..") {
-			$path=$dir.$list[$i];
-			if (file_exists($path)) {
-				if (is_dir($path))
-					$data=array_merge($data,getItems($path."/"));
-				else if(strtolower(pathinfo($path)["extension"])==="mp3")
-					array_push($data,simp($path));
-			}
-		}
-		$i++;
+	if (is_string($exclude) && strlen($exclude) > 0) {
+		$stmt = $pdo->prepare("SELECT `id`, `name` AS `title`, `artist` FROM `songs` WHERE `id` != ? ORDER BY RAND() LIMIT 1");
+		$stmt->execute([$exclude]);
+	} else {
+		$stmt = $pdo->query("SELECT `id`, `name` AS `title`, `artist` FROM `songs` ORDER BY RAND() LIMIT 1");
 	}
-	$sel=rand(0,count($data));
-	if (isset($data[$sel])) {
-		$res=$data[$sel];
-	} else if (isset($data[$sel-1]))
-		$res=$data[$sel-1];
-	if (strstr($q,"/"))
-		$q=explode("/",$q)[count(explode("/",$q))-1];
-	if (parse($res)===$q)
-		$res=getSong($q);
-	unset($q,$dir,$path,$i);
-	return $res;
-}
 
-function getItems($q=false) {
-	$res=array();
-	$list=array();
-	$i=0;
-	$path="";
-	if (is_string($q)) {
-		if (file_exists($q)) {
-			if (is_dir($q)) {
-				$list=scandir($q);
-				while($i<count($list)){
-					if ($list[$i]!=="." && $list[$i]!=="..") {
-						$path=$q.$list[$i];
-						if (file_exists($path)) {
-							if (is_dir($path)) {
-								$res=array_merge($res,getItems($path."/"));
-							} else if (is_file($path)) {
-								if (strtolower(pathinfo($path)["extension"])==="mp3") {
-									array_push($res,simp($path));
-								}
-							}
-						}
-					}
-					$i++;
-				}
-			}
-		}
+	$song = $stmt->fetch();
+	if ($song) {
+		echo json_encode([
+			"success" => true,
+			"song_id" => $song["id"],
+			"title" => $song["title"],
+			"artist" => $song["artist"] ?? "",
+			"stream_url" => "assets/php/streamSong.php?id=" . urlencode($song["id"])
+		]);
+	} else {
+		echo json_encode(["success" => false]);
 	}
-	unset($q,$list,$i,$path);
-	return $res;
+} catch (PDOException $e) {
+	echo json_encode(["success" => false]);
 }
-function simp($q=false) {
-	if (is_string($q)) {
-		$q=preg_replace("/(A:\\/wamp64\\/www\\/WebRoot\\/www\\/files\\/Music\\/)/i","",$q);
-	}
-	return $q;
-}
-*/
-?>
