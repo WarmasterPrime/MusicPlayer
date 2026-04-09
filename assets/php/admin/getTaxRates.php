@@ -1,6 +1,6 @@
 <?php
 /**
- * Lists coupons from the local database.
+ * Lists tax rates from the local database.
  * Requires StoreAdmin authority.
  */
 
@@ -21,10 +21,10 @@ if (!hasAuthority("StoreAdmin")) {
 
 try {
 	$pdo = Database::connect("store");
-	$stmt = $pdo->query("SELECT * FROM `coupons` ORDER BY `created_at` DESC");
-	$coupons = $stmt->fetchAll();
+	$stmt = $pdo->query("SELECT * FROM `tax_rates` ORDER BY `created_at` DESC");
+	$rates = $stmt->fetchAll();
 
-	echo json_encode(["success" => true, "coupons" => $coupons]);
+	echo json_encode(["success" => true, "tax_rates" => $rates]);
 } catch (Exception $e) {
-	echo json_encode(["success" => false, "message" => "Error loading coupons."]);
+	echo json_encode(["success" => false, "message" => "Error loading tax rates."]);
 }

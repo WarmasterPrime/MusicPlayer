@@ -19,7 +19,7 @@ $user = getCurrentUser();
 try {
 	$pdo = Database::connect("store");
 	$stmt = $pdo->prepare("
-		SELECT `id`, `stripe_payment_intent`, `stripe_checkout_id`, `amount_cents`, `currency`, `description`, `status`, `created_at`
+		SELECT `id`, `paypal_capture_id`, `paypal_order_id`, `amount_cents`, `tax_amount`, `currency`, `description`, `status`, `created_at`
 		FROM `transactions`
 		WHERE `user_id` = ?
 		ORDER BY `created_at` DESC

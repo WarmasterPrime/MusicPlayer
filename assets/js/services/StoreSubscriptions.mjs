@@ -50,9 +50,11 @@ export class StoreSubscriptions {
 				statusClass = " canceled";
 			}
 
+			let planLabel = sub.paypal_plan_id || "Subscription";
+
 			html += "<div class='subscription-card'>";
 			html += "<div class='subscription-card-header'>";
-			html += "<span class='subscription-card-name'>" + StoreSubscriptions.escapeHtml(sub.stripe_price_id || "Subscription") + "</span>";
+			html += "<span class='subscription-card-name'>" + StoreSubscriptions.escapeHtml(planLabel) + "</span>";
 			html += "<span class='subscription-card-status" + statusClass + "'>" + StoreSubscriptions.escapeHtml(statusLabel) + "</span>";
 			html += "</div>";
 
@@ -64,9 +66,9 @@ export class StoreSubscriptions {
 
 			html += "<div class='subscription-card-actions'>";
 			if (sub.status === "active" && sub.cancel_at_period_end != 1) {
-				html += "<button class='modal-form-btn sub-cancel-btn' data-sub-id='" + StoreSubscriptions.escapeAttr(sub.stripe_subscription_id) + "' style='width:auto;font-size:12px;padding:6px 14px;'>Cancel</button>";
+				html += "<button class='modal-form-btn sub-cancel-btn' data-sub-id='" + StoreSubscriptions.escapeAttr(sub.paypal_subscription_id) + "' style='width:auto;font-size:12px;padding:6px 14px;'>Cancel</button>";
 			}
-			html += "<button class='modal-form-btn sub-portal-btn' style='width:auto;font-size:12px;padding:6px 14px;margin-left:6px;'>Manage Billing</button>";
+			html += "<button class='modal-form-btn sub-portal-btn' style='width:auto;font-size:12px;padding:6px 14px;margin-left:6px;'>Manage on PayPal</button>";
 			html += "</div>";
 			html += "</div>";
 		}
@@ -78,7 +80,6 @@ export class StoreSubscriptions {
 	 * @param {HTMLElement} container
 	 */
 	static attachListeners(container) {
-		// Cancel buttons
 		container.addEventListener("click", function (event) {
 			let cancelBtn = event.target.closest(".sub-cancel-btn");
 			if (cancelBtn) {
@@ -102,8 +103,7 @@ export class StoreSubscriptions {
 	 * @param {HTMLElement} container
 	 */
 	static async confirmCancel(subscriptionId, container) {
-		// Simple confirmation via custom UI
-		if (!confirm("Cancel this subscription? It will remain active until the end of the current billing period.")) {
+		if (!confirm("Cancel this subscription? It will be cancelled immediately.")) {
 			return;
 		}
 
@@ -113,8 +113,7 @@ export class StoreSubscriptions {
 			});
 
 			if (result && result.success) {
-				Toast.success("Subscription will cancel at end of billing period.");
-				// Reload subscriptions
+				Toast.success("Subscription cancelled.");
 				StoreSubscriptions.load(container);
 			} else {
 				Toast.error(result.message || "Failed to cancel subscription.");
@@ -125,7 +124,7 @@ export class StoreSubscriptions {
 	}
 
 	/**
-	 * Opens the Stripe Customer Portal for self-service billing management.
+	 * Opens the PayPal subscription management page.
 	 */
 	static async openPortal() {
 		try {
@@ -133,10 +132,10 @@ export class StoreSubscriptions {
 			if (result && result.success && result.portal_url) {
 				window.open(result.portal_url, "_blank");
 			} else {
-				Toast.error(result.message || "Failed to open billing portal.");
+				Toast.error(result.message || "Failed to open PayPal management.");
 			}
 		} catch (e) {
-			Toast.error("Error opening billing portal.");
+			Toast.error("Error opening PayPal management.");
 		}
 	}
 

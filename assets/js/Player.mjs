@@ -4,6 +4,7 @@ import { UrlParams } from "./UrlParams.mjs";
 import { Server } from "./lib/Server.mjs";
 import { ServerResponse } from "./lib/ServerResponse.mjs";
 import { AudioLibrary } from "./AudioLibrary.mjs";
+import { Session } from "./Session.mjs";
 
 /**
  * Controls audio playback, song metadata, lyrics, and keyboard input.
@@ -118,7 +119,7 @@ export class Player {
 	 */
 	set songName(value) {
 		this._songName = value;
-		this.display = this.songArtist + " - " + this.songName;
+		this.display = this.formatDisplay();
 	}
 
 	/**
@@ -135,7 +136,20 @@ export class Player {
 	 */
 	set songArtist(value) {
 		this._songArtist = value;
-		this.display = this.songArtist + " - " + this.songName;
+		this.display = this.formatDisplay();
+	}
+
+	/**
+	 * Formats the song display text based on user preference.
+	 * @returns {string}
+	 */
+	formatDisplay() {
+		let artist = this._songArtist || "";
+		let title = this._songName || "";
+		if (Session.songDisplayFormat === "title-artist") {
+			return title + " - " + artist;
+		}
+		return artist + " - " + title;
 	}
 
 	/**
@@ -259,7 +273,7 @@ export class Player {
 	play(source = undefined, overrideUserActivation = false) {
 		source = Player.getValueFromServerResponse(source);
 		if (this._songName !== null && this._songArtist !== null)
-			this.display = this.songArtist + " - " + this.songName;
+			this.display = this.formatDisplay();
 		this.processingPlayRequest = true;
 
 		if (source !== undefined && source !== this.source)

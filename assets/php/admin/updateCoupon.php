@@ -1,11 +1,11 @@
 <?php
 /**
- * Updates a Stripe coupon (name and metadata only — Stripe limitation).
+ * Updates a coupon in the local database.
  * Requires StoreAdmin authority.
  */
 
 require_once __DIR__ . "/../session.php";
-require_once __DIR__ . "/../System/Payments/StripeApi.php";
+require_once __DIR__ . "/../System/Database.php";
 
 header("Content-Type: application/json");
 
@@ -27,23 +27,61 @@ if (empty($couponId)) {
 	exit;
 }
 
-$data = [];
-if (isset($input["name"])) $data["name"] = $input["name"];
-if (isset($input["metadata"]) && is_array($input["metadata"])) $data["metadata"] = $input["metadata"];
+$sets = [];
+$values = [];
 
-if (empty($data)) {
-	echo json_encode(["success" => false, "message" => "No fields to update. Only name and metadata can be changed."]);
+if (isset($input["name"])) {
+	$sets[] = "`name` = ?";
+	$values[] = $input["name"];
+}
+if (isset($input["percent_off"])) {
+	$sets[] = "`percent_off` = ?";
+	$values[] = floatval($input["percent_off"]);
+}
+if (isset($input["amount_off"])) {
+	$sets[] = "`amount_off` = ?";
+	$values[] = intval($input["amount_off"]);
+}
+if (isset($input["currency"])) {
+	$sets[] = "`currency` = ?";
+	$values[] = $input["currency"];
+}
+if (isset($input["duration"])) {
+	$sets[] = "`duration` = ?";
+	$values[] = $input["duration"];
+}
+if (isset($input["duration_in_months"])) {
+	$sets[] = "`duration_in_months` = ?";
+	$values[] = intval($input["duration_in_months"]);
+}
+if (isset($input["max_redemptions"])) {
+	$sets[] = "`max_redemptions` = ?";
+	$values[] = intval($input["max_redemptions"]);
+}
+if (isset($input["active"])) {
+	$sets[] = "`active` = ?";
+	$values[] = $input["active"] ? 1 : 0;
+}
+
+if (empty($sets)) {
+	echo json_encode(["success" => false, "message" => "No fields to update."]);
 	exit;
 }
 
 try {
-	StripeApi::init("development");
-	$result = StripeApi::post("coupons/" . $couponId, $data);
+	$pdo = Database::connect("store");
+	$values[] = $couponId;
+	$stmt = $pdo->prepare("UPDATE `coupons` SET " . implode(", ", $sets) . " WHERE `id` = ?");
+	$stmt->execute($values);
 
-	if (isset($result["id"])) {
-		echo json_encode(["success" => true, "coupon" => $result]);
+	$stmt = $pdo->prepare("SELECT * FROM `coupons` WHERE `id` = ?");
+	$stmt->execute([$couponId]);
+	$coupon = $stmt->fetch();
+
+	if ($coupon) {
+		echo json_encode(["success" => true, "coupon" => $coupon]);
 	} else {
-		echo json_encode(["success" => false, "message" => $result["_error"] ?? "Failed to update coupon."]);
+		echo json_encode(["success" => false, "message" => "Coupon not found."]);
 	}
 } catch (Exception $e) {
 	echo json_encode(["success" => false, "message" => "Error updating coupon."]);

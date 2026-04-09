@@ -1,6 +1,6 @@
 <?php
 /**
- * Handles the Stripe Checkout cancel redirect.
+ * Handles the PayPal checkout cancel redirect.
  * Simply redirects back to the app with cancel status.
  */
 

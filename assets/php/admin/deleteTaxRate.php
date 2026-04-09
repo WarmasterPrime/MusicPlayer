@@ -1,6 +1,6 @@
 <?php
 /**
- * Lists coupons from the local database.
+ * Deactivates a tax rate.
  * Requires StoreAdmin authority.
  */
 
@@ -19,12 +19,20 @@ if (!hasAuthority("StoreAdmin")) {
 	exit;
 }
 
+$input = json_decode(file_get_contents("php://input"), true);
+$id = $input["id"] ?? "";
+
+if (empty($id)) {
+	echo json_encode(["success" => false, "message" => "Tax rate ID required."]);
+	exit;
+}
+
 try {
 	$pdo = Database::connect("store");
-	$stmt = $pdo->query("SELECT * FROM `coupons` ORDER BY `created_at` DESC");
-	$coupons = $stmt->fetchAll();
+	$stmt = $pdo->prepare("UPDATE `tax_rates` SET `active` = 0 WHERE `id` = ?");
+	$stmt->execute([$id]);
 
-	echo json_encode(["success" => true, "coupons" => $coupons]);
+	echo json_encode(["success" => $stmt->rowCount() > 0]);
 } catch (Exception $e) {
-	echo json_encode(["success" => false, "message" => "Error loading coupons."]);
+	echo json_encode(["success" => false, "message" => "Error deleting tax rate."]);
 }

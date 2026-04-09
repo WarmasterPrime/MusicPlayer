@@ -65,6 +65,11 @@ class StoreSchemaSetup {
 		$results[] = $this->createStoreLinkPlatforms();
 		$results[] = $this->createStoreSubscriptions();
 		$results[] = $this->createStoreTransactions();
+		$results[] = $this->createStoreProducts();
+		$results[] = $this->createStorePrices();
+		$results[] = $this->createStoreCoupons();
+		$results[] = $this->createStoreTaxRates();
+		$results[] = $this->addTransactionTaxColumn();
 		$results[] = $this->createMediaFonts();
 		$results[] = $this->createAccountsFontOptions();
 		$results[] = $this->createAccountsFeatureFlags();
@@ -84,7 +89,7 @@ class StoreSchemaSetup {
 	}
 
 	/**
-	 * Creates store.accounts — links MusicPlayer users to Stripe customers.
+	 * Creates store.accounts — links MusicPlayer users to PayPal payers.
 	 */
 	private function createStoreAccounts(): array {
 		$result = ["table" => "store.accounts", "actions" => []];
@@ -95,12 +100,11 @@ class StoreSchemaSetup {
 				CREATE TABLE `accounts` (
 					`id` CHAR(255) NOT NULL,
 					`user_id` CHAR(36) NOT NULL,
-					`stripe_customer_id` VARCHAR(255) NOT NULL,
+					`paypal_payer_id` VARCHAR(255) DEFAULT NULL,
 					`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 					`updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
 					PRIMARY KEY (`id`),
-					UNIQUE KEY `uq_store_user` (`user_id`),
-					UNIQUE KEY `uq_store_stripe` (`stripe_customer_id`)
+					UNIQUE KEY `uq_store_user` (`user_id`)
 				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 			");
 			$result["actions"][] = "Created table";
@@ -145,7 +149,7 @@ class StoreSchemaSetup {
 	}
 
 	/**
-	 * Creates store.subscriptions — local mirror of Stripe subscriptions.
+	 * Creates store.subscriptions — local mirror of PayPal subscriptions.
 	 */
 	private function createStoreSubscriptions(): array {
 		$result = ["table" => "store.subscriptions", "actions" => []];
@@ -156,8 +160,8 @@ class StoreSchemaSetup {
 				CREATE TABLE `subscriptions` (
 					`id` CHAR(255) NOT NULL,
 					`user_id` CHAR(36) NOT NULL,
-					`stripe_subscription_id` VARCHAR(255) NOT NULL,
-					`stripe_price_id` VARCHAR(255) NOT NULL,
+					`paypal_subscription_id` VARCHAR(255) NOT NULL,
+					`paypal_plan_id` VARCHAR(255) NOT NULL,
 					`status` VARCHAR(50) NOT NULL DEFAULT 'active',
 					`current_period_start` TIMESTAMP NULL DEFAULT NULL,
 					`current_period_end` TIMESTAMP NULL DEFAULT NULL,
@@ -165,7 +169,7 @@ class StoreSchemaSetup {
 					`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 					`updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
 					PRIMARY KEY (`id`),
-					UNIQUE KEY `uq_stripe_sub` (`stripe_subscription_id`),
+					UNIQUE KEY `uq_paypal_sub` (`paypal_subscription_id`),
 					KEY `idx_user_status` (`user_id`, `status`)
 				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 			");
@@ -189,8 +193,8 @@ class StoreSchemaSetup {
 				CREATE TABLE `transactions` (
 					`id` CHAR(255) NOT NULL,
 					`user_id` CHAR(36) NOT NULL,
-					`stripe_payment_intent` VARCHAR(255) DEFAULT NULL,
-					`stripe_checkout_id` VARCHAR(255) DEFAULT NULL,
+					`paypal_capture_id` VARCHAR(255) DEFAULT NULL,
+					`paypal_order_id` VARCHAR(255) DEFAULT NULL,
 					`amount_cents` INT UNSIGNED NOT NULL DEFAULT 0,
 					`currency` VARCHAR(10) NOT NULL DEFAULT 'usd',
 					`description` VARCHAR(500) DEFAULT NULL,
@@ -203,6 +207,144 @@ class StoreSchemaSetup {
 			$result["actions"][] = "Created table";
 		} else {
 			$result["actions"][] = "Table already exists";
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Creates store.products — local product catalog.
+	 */
+	private function createStoreProducts(): array {
+		$result = ["table" => "store.products", "actions" => []];
+		$pdo = $this->connect("store");
+
+		if (!$this->tableExists($pdo, "products")) {
+			$pdo->exec("
+				CREATE TABLE `products` (
+					`id` CHAR(255) NOT NULL,
+					`paypal_product_id` VARCHAR(255) DEFAULT NULL,
+					`name` VARCHAR(255) NOT NULL,
+					`description` TEXT DEFAULT NULL,
+					`active` TINYINT(1) NOT NULL DEFAULT 1,
+					`metadata` TEXT DEFAULT NULL,
+					`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					`updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+					PRIMARY KEY (`id`),
+					KEY `idx_product_active` (`active`)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+			");
+			$result["actions"][] = "Created table";
+		} else {
+			$result["actions"][] = "Table already exists";
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Creates store.prices — pricing tiers linked to products.
+	 */
+	private function createStorePrices(): array {
+		$result = ["table" => "store.prices", "actions" => []];
+		$pdo = $this->connect("store");
+
+		if (!$this->tableExists($pdo, "prices")) {
+			$pdo->exec("
+				CREATE TABLE `prices` (
+					`id` CHAR(255) NOT NULL,
+					`product_id` CHAR(255) NOT NULL,
+					`paypal_plan_id` VARCHAR(255) DEFAULT NULL,
+					`unit_amount` INT UNSIGNED NOT NULL DEFAULT 0,
+					`currency` VARCHAR(10) NOT NULL DEFAULT 'usd',
+					`interval_unit` VARCHAR(20) NOT NULL DEFAULT 'month',
+					`interval_count` INT UNSIGNED NOT NULL DEFAULT 1,
+					`active` TINYINT(1) NOT NULL DEFAULT 1,
+					`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					PRIMARY KEY (`id`),
+					KEY `idx_price_product` (`product_id`),
+					KEY `idx_price_active` (`active`)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+			");
+			$result["actions"][] = "Created table";
+		} else {
+			$result["actions"][] = "Table already exists";
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Creates store.coupons — discount codes.
+	 */
+	private function createStoreCoupons(): array {
+		$result = ["table" => "store.coupons", "actions" => []];
+		$pdo = $this->connect("store");
+
+		if (!$this->tableExists($pdo, "coupons")) {
+			$pdo->exec("
+				CREATE TABLE `coupons` (
+					`id` CHAR(255) NOT NULL,
+					`name` VARCHAR(255) NOT NULL,
+					`percent_off` DECIMAL(5,2) DEFAULT NULL,
+					`amount_off` INT UNSIGNED DEFAULT NULL,
+					`currency` VARCHAR(10) DEFAULT 'usd',
+					`duration` VARCHAR(20) NOT NULL DEFAULT 'once',
+					`duration_in_months` INT UNSIGNED DEFAULT NULL,
+					`max_redemptions` INT UNSIGNED DEFAULT NULL,
+					`times_redeemed` INT UNSIGNED NOT NULL DEFAULT 0,
+					`active` TINYINT(1) NOT NULL DEFAULT 1,
+					`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					PRIMARY KEY (`id`)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+			");
+			$result["actions"][] = "Created table";
+		} else {
+			$result["actions"][] = "Table already exists";
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Creates store.tax_rates — configurable tax percentages.
+	 */
+	private function createStoreTaxRates(): array {
+		$result = ["table" => "store.tax_rates", "actions" => []];
+		$pdo = $this->connect("store");
+
+		if (!$this->tableExists($pdo, "tax_rates")) {
+			$pdo->exec("
+				CREATE TABLE `tax_rates` (
+					`id` CHAR(255) NOT NULL,
+					`name` VARCHAR(255) NOT NULL,
+					`percentage` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+					`active` TINYINT(1) NOT NULL DEFAULT 1,
+					`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					`updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+					PRIMARY KEY (`id`)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+			");
+			$result["actions"][] = "Created table";
+		} else {
+			$result["actions"][] = "Table already exists";
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Adds tax_amount column to store.transactions if missing.
+	 */
+	private function addTransactionTaxColumn(): array {
+		$result = ["table" => "store.transactions (tax_amount)", "actions" => []];
+		$pdo = $this->connect("store");
+
+		if ($this->tableExists($pdo, "transactions") && !$this->columnExists($pdo, "transactions", "tax_amount")) {
+			$pdo->exec("ALTER TABLE `transactions` ADD COLUMN `tax_amount` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `amount_cents`");
+			$result["actions"][] = "Added tax_amount column";
+		} else {
+			$result["actions"][] = "Column already exists or table missing";
 		}
 
 		return $result;

@@ -1,11 +1,11 @@
 <?php
 /**
- * Deletes a Stripe coupon.
+ * Deletes (deactivates) a coupon from the local database.
  * Requires StoreAdmin authority.
  */
 
 require_once __DIR__ . "/../session.php";
-require_once __DIR__ . "/../System/Payments/StripeApi.php";
+require_once __DIR__ . "/../System/Database.php";
 
 header("Content-Type: application/json");
 
@@ -28,13 +28,16 @@ if (empty($couponId)) {
 }
 
 try {
-	StripeApi::init("development");
-	$result = StripeApi::delete("coupons/" . $couponId);
+	$pdo = Database::connect("store");
 
-	if (isset($result["deleted"]) && $result["deleted"]) {
+	// Soft delete — set active = 0
+	$stmt = $pdo->prepare("UPDATE `coupons` SET `active` = 0 WHERE `id` = ?");
+	$stmt->execute([$couponId]);
+
+	if ($stmt->rowCount() > 0) {
 		echo json_encode(["success" => true]);
 	} else {
-		echo json_encode(["success" => false, "message" => $result["_error"] ?? "Failed to delete coupon."]);
+		echo json_encode(["success" => false, "message" => "Coupon not found."]);
 	}
 } catch (Exception $e) {
 	echo json_encode(["success" => false, "message" => "Error deleting coupon."]);

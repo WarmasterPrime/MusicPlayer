@@ -5,7 +5,7 @@
  */
 
 require_once __DIR__ . "/../session.php";
-require_once __DIR__ . "/../System/Payments/StripeSubscription.php";
+require_once __DIR__ . "/../System/Payments/PayPalSubscription.php";
 
 header("Content-Type: application/json");
 
@@ -17,7 +17,7 @@ if (!isLoggedIn()) {
 $user = getCurrentUser();
 
 try {
-	$subscriptions = StripeSubscription::getAllForUser($user["id"]);
+	$subscriptions = PayPalSubscription::getAllForUser($user["id"]);
 
 	echo json_encode(["success" => true, "subscriptions" => $subscriptions]);
 

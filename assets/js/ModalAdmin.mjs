@@ -4,7 +4,7 @@ import { Session } from "./Session.mjs";
 import { Toast } from "./Toast.mjs";
 
 /**
- * Admin panel with sub-tabs: Products, Users, Coupons.
+ * Admin panel with sub-tabs: Products, Users, Coupons, Tax, Transactions.
  * Requires StoreAdmin or UserAdmin authority.
  */
 export class ModalAdmin {
@@ -56,6 +56,8 @@ export class ModalAdmin {
 		html += "<button class='store-subtab" + (ModalAdmin.activeSubTab === "products" ? " active" : "") + "' data-admin-tab='products'>Products</button>";
 		html += "<button class='store-subtab" + (ModalAdmin.activeSubTab === "users" ? " active" : "") + "' data-admin-tab='users'>Users</button>";
 		html += "<button class='store-subtab" + (ModalAdmin.activeSubTab === "coupons" ? " active" : "") + "' data-admin-tab='coupons'>Coupons</button>";
+		html += "<button class='store-subtab" + (ModalAdmin.activeSubTab === "tax" ? " active" : "") + "' data-admin-tab='tax'>Tax</button>";
+		html += "<button class='store-subtab" + (ModalAdmin.activeSubTab === "transactions" ? " active" : "") + "' data-admin-tab='transactions'>Transactions</button>";
 		html += "</div>";
 		html += "<div id='admin-content'></div>";
 		return html;
@@ -81,6 +83,8 @@ export class ModalAdmin {
 		if (key === "products") ModalAdmin.loadProducts(c);
 		else if (key === "users") ModalAdmin.loadUsers(c);
 		else if (key === "coupons") ModalAdmin.loadCoupons(c);
+		else if (key === "tax") ModalAdmin.loadTaxRates(c);
+		else if (key === "transactions") ModalAdmin.loadTransactions(c);
 	}
 
 	// ═══════════════════════════════════════════════
@@ -113,7 +117,7 @@ export class ModalAdmin {
 				let priceInfo = ModalAdmin.formatPrices(p.prices);
 				html += "<tr>";
 				html += "<td>" + ModalAdmin.escapeHtml(p.name) + "<div class='admin-id'>" + ModalAdmin.escapeHtml(p.id) + "</div></td>";
-				html += "<td>" + (p.active !== false ? "<span class='admin-badge-active'>Active</span>" : "<span class='admin-badge-inactive'>Inactive</span>") + "</td>";
+				html += "<td>" + (p.active != 0 ? "<span class='admin-badge-active'>Active</span>" : "<span class='admin-badge-inactive'>Inactive</span>") + "</td>";
 				html += "<td style='font-size:12px;'>" + ModalAdmin.escapeHtml(priceInfo) + "</td>";
 				html += "<td><button class='admin-action-btn' data-edit-product='" + i + "'>Edit</button></td>";
 				html += "</tr>";
@@ -142,7 +146,7 @@ export class ModalAdmin {
 		html += "<div class='modal-form-group'><label>Features (comma-separated metadata)</label><input type='text' id='admin-product-features' placeholder='feature1,feature2' /></div>";
 		html += "<hr style='border-color:rgba(255,50,100,0.2);margin:12px 0;' />";
 		html += "<div class='modal-form-title' style='font-size:14px;'>Initial Price</div>";
-		html += "<div class='modal-form-group'><label>Amount (cents)</label><input type='number' id='admin-price-amount' value='999' /></div>";
+		html += "<div class='modal-form-group'><label>Amount ($)</label><input type='number' id='admin-price-amount' value='9.99' step='0.01' min='0.01' /></div>";
 		html += "<div class='modal-form-group'><label>Currency</label><input type='text' id='admin-price-currency' value='usd' /></div>";
 		html += "<div class='modal-form-group'><label>Interval</label><select id='admin-price-interval'><option value='month'>Monthly</option><option value='year'>Yearly</option></select></div>";
 		html += "<button class='modal-form-btn' id='admin-product-submit'>Create</button>";
@@ -166,7 +170,7 @@ export class ModalAdmin {
 				if (result.success && result.product) {
 					let priceResult = await Api.send("assets/php/admin/createPrice.php", {
 						"product_id": result.product.id,
-						"unit_amount": parseInt(document.getElementById("admin-price-amount")?.value || "999", 10),
+						"unit_amount": Math.round(parseFloat(document.getElementById("admin-price-amount")?.value || "9.99") * 100),
 						"currency": document.getElementById("admin-price-currency")?.value || "usd",
 						"interval": document.getElementById("admin-price-interval")?.value || "month"
 					});
@@ -186,18 +190,36 @@ export class ModalAdmin {
 		html += "<div class='admin-id' style='margin-bottom:12px;'>" + ModalAdmin.escapeHtml(product.id) + "</div>";
 		html += "<div class='modal-form-group'><label>Name</label><input type='text' id='admin-product-name' value='" + ModalAdmin.escapeAttr(product.name || "") + "' /></div>";
 		html += "<div class='modal-form-group'><label>Description</label><textarea id='admin-product-desc' rows='3'>" + ModalAdmin.escapeHtml(product.description || "") + "</textarea></div>";
-		html += "<div class='modal-form-group'><label>Active</label><select id='admin-product-active'><option value='true'" + (product.active !== false ? " selected" : "") + ">Active</option><option value='false'" + (product.active === false ? " selected" : "") + ">Inactive</option></select></div>";
-		let featuresMeta = (product.metadata && product.metadata.features) ? product.metadata.features : "";
+		html += "<div class='modal-form-group'><label>Active</label><select id='admin-product-active'><option value='true'" + (product.active != 0 ? " selected" : "") + ">Active</option><option value='false'" + (product.active == 0 ? " selected" : "") + ">Inactive</option></select></div>";
+		let metaObj = product.metadata || {};
+		if (typeof metaObj === "string") { try { metaObj = JSON.parse(metaObj); } catch (e) { metaObj = {}; } }
+		let featuresMeta = (metaObj && metaObj.features) ? metaObj.features : "";
 		html += "<div class='modal-form-group'><label>Features (metadata)</label><input type='text' id='admin-product-features' value='" + ModalAdmin.escapeAttr(featuresMeta) + "' /></div>";
 
-		// Show current prices (read-only — Stripe prices are immutable)
+		// Show current prices (editable)
 		html += "<hr style='border-color:rgba(255,50,100,0.2);margin:12px 0;' />";
-		html += "<div class='modal-form-title' style='font-size:14px;'>Current Prices <span style='font-weight:normal;font-size:11px;color:rgba(255,255,255,0.4);'>(read-only — Stripe prices are immutable)</span></div>";
+		html += "<div class='modal-form-title' style='font-size:14px;'>Current Prices</div>";
 		if (product.prices && product.prices.length > 0) {
 			for (let i = 0; i < product.prices.length; i++) {
 				let pr = product.prices[i];
-				let interval = pr.recurring ? pr.recurring.interval : "one-time";
-				html += "<div style='font-size:13px;color:rgba(255,255,255,0.7);padding:3px 0;'>$" + (pr.unit_amount / 100).toFixed(2) + " " + pr.currency + "/" + interval + " <span class='admin-id'>" + ModalAdmin.escapeHtml(pr.id) + "</span></div>";
+				let interval = pr.interval_unit ? pr.interval_unit.toUpperCase() : "MONTH";
+				let isActive = pr.active != 0;
+				html += "<div class='admin-price-row' data-price-id='" + ModalAdmin.escapeAttr(pr.id) + "' style='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);" + (!isActive ? "opacity:0.4;" : "") + "'>";
+				html += "<span style='color:rgba(255,255,255,0.5);font-size:13px;'>$</span>";
+				html += "<input type='number' class='admin-price-amount' value='" + ((pr.unit_amount || 0) / 100).toFixed(2) + "' step='0.01' min='0.01' style='width:80px;font-size:13px;padding:4px 6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#fff;' " + (!isActive ? "disabled" : "") + " />";
+				html += "<select class='admin-price-interval' style='font-size:13px;padding:4px 6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#fff;' " + (!isActive ? "disabled" : "") + ">";
+				html += "<option value='MONTH'" + (interval === "MONTH" ? " selected" : "") + ">/ month</option>";
+				html += "<option value='YEAR'" + (interval === "YEAR" ? " selected" : "") + ">/ year</option>";
+				html += "<option value='WEEK'" + (interval === "WEEK" ? " selected" : "") + ">/ week</option>";
+				html += "<option value='DAY'" + (interval === "DAY" ? " selected" : "") + ">/ day</option>";
+				html += "</select>";
+				html += "<button class='admin-action-btn admin-price-save' style='font-size:11px;padding:3px 10px;'" + (!isActive ? " disabled" : "") + ">Save</button>";
+				if (isActive) {
+					html += "<button class='admin-action-btn admin-price-deactivate' style='font-size:11px;padding:3px 10px;color:rgba(255,80,80,0.9);'>Deactivate</button>";
+				} else {
+					html += "<span style='font-size:11px;color:rgba(255,80,80,0.6);'>Inactive</span>";
+				}
+				html += "</div>";
 			}
 		} else {
 			html += "<div class='admin-muted'>No prices.</div>";
@@ -205,7 +227,7 @@ export class ModalAdmin {
 
 		// Add new price section
 		html += "<details style='margin-top:10px;'><summary style='cursor:pointer;color:var(--accent,rgba(255,50,100,0.9));font-size:13px;'>+ Add New Price</summary>";
-		html += "<div class='modal-form-group'><label>Amount (cents)</label><input type='number' id='admin-new-price-amount' value='999' /></div>";
+		html += "<div class='modal-form-group'><label>Amount ($)</label><input type='number' id='admin-new-price-amount' value='9.99' step='0.01' min='0.01' /></div>";
 		html += "<div class='modal-form-group'><label>Currency</label><input type='text' id='admin-new-price-currency' value='usd' /></div>";
 		html += "<div class='modal-form-group'><label>Interval</label><select id='admin-new-price-interval'><option value='month'>Monthly</option><option value='year'>Yearly</option></select></div>";
 		html += "<button class='modal-form-btn' id='admin-add-price' style='width:auto;padding:6px 16px;font-size:13px;'>Add Price</button>";
@@ -239,13 +261,13 @@ export class ModalAdmin {
 
 		document.getElementById("admin-add-price")?.addEventListener("click", async function () {
 			let msg = document.getElementById("admin-msg");
-			let amount = parseInt(document.getElementById("admin-new-price-amount")?.value || "0", 10);
-			if (amount <= 0) { ModalAdmin.setMsg(msg, "Price amount must be > 0.", "error"); return; }
+			let dollarAmt = parseFloat(document.getElementById("admin-new-price-amount")?.value || "0");
+			if (dollarAmt <= 0) { ModalAdmin.setMsg(msg, "Price amount must be > 0.", "error"); return; }
 			ModalAdmin.setMsg(msg, "Adding price...", "");
 			try {
 				let result = await Api.send("assets/php/admin/createPrice.php", {
 					"product_id": product.id,
-					"unit_amount": amount,
+					"unit_amount": Math.round(dollarAmt * 100),
 					"currency": document.getElementById("admin-new-price-currency")?.value || "usd",
 					"interval": document.getElementById("admin-new-price-interval")?.value || "month"
 				});
@@ -253,6 +275,69 @@ export class ModalAdmin {
 				else { ModalAdmin.setMsg(msg, result.message || "Failed.", "error"); }
 			} catch (e) { ModalAdmin.setMsg(msg, "Error.", "error"); }
 		});
+
+		// Price save buttons
+		let saveBtns = container.querySelectorAll(".admin-price-save");
+		for (let i = 0; i < saveBtns.length; i++) {
+			saveBtns[i].addEventListener("click", async function () {
+				let row = this.closest(".admin-price-row");
+				if (!row) return;
+				let priceId = row.getAttribute("data-price-id");
+				let amountInput = row.querySelector(".admin-price-amount");
+				let intervalSelect = row.querySelector(".admin-price-interval");
+				let dollarAmount = parseFloat(amountInput?.value || "0");
+				if (dollarAmount <= 0) { Toast.error("Amount must be greater than 0."); return; }
+				let newAmountCents = Math.round(dollarAmount * 100);
+				let newInterval = intervalSelect?.value || "MONTH";
+				let msg = document.getElementById("admin-msg");
+				ModalAdmin.setMsg(msg, "Updating price...", "");
+				try {
+					let result = await Api.send("assets/php/admin/updatePrice.php", {
+						"price_id": priceId,
+						"unit_amount": newAmountCents,
+						"interval_unit": newInterval
+					});
+					if (result.success) {
+						Toast.success("Price updated ($" + dollarAmount.toFixed(2) + "/" + newInterval.toLowerCase() + ").");
+						// Refetch product and re-open edit form
+						let refreshed = await Api.send("assets/php/store/getProduct.php", { "product_id": product.id });
+						if (refreshed && refreshed.success && refreshed.product) {
+							ModalAdmin.showEditProductForm(refreshed.product);
+						} else { ModalAdmin.renderSubTab("products"); }
+					} else {
+						ModalAdmin.setMsg(msg, result.message || "Failed to update price.", "error");
+					}
+				} catch (e) { ModalAdmin.setMsg(msg, "Error updating price.", "error"); }
+			});
+		}
+
+		// Price deactivate buttons
+		let deactivateBtns = container.querySelectorAll(".admin-price-deactivate");
+		for (let i = 0; i < deactivateBtns.length; i++) {
+			deactivateBtns[i].addEventListener("click", async function () {
+				let row = this.closest(".admin-price-row");
+				if (!row) return;
+				let priceId = row.getAttribute("data-price-id");
+				if (!confirm("Deactivate this price? Existing subscribers will not be affected, but no new subscriptions can use this price.")) return;
+				let msg = document.getElementById("admin-msg");
+				ModalAdmin.setMsg(msg, "Deactivating...", "");
+				try {
+					let result = await Api.send("assets/php/admin/updatePrice.php", {
+						"price_id": priceId,
+						"active": false
+					});
+					if (result.success) {
+						Toast.success("Price deactivated.");
+						let refreshed = await Api.send("assets/php/store/getProduct.php", { "product_id": product.id });
+						if (refreshed && refreshed.success && refreshed.product) {
+							ModalAdmin.showEditProductForm(refreshed.product);
+						} else { ModalAdmin.renderSubTab("products"); }
+					} else {
+						ModalAdmin.setMsg(msg, result.message || "Failed to deactivate.", "error");
+					}
+				} catch (e) { ModalAdmin.setMsg(msg, "Error.", "error"); }
+			});
+		}
 	}
 
 	// ═══════════════════════════════════════════════
@@ -392,10 +477,10 @@ export class ModalAdmin {
 				let sub = data.subscriptions[i];
 				html += "<div class='subscription-card'>";
 				html += "<div><strong>Status:</strong> " + ModalAdmin.escapeHtml(sub.status) + "</div>";
-				html += "<div class='admin-id'>Sub: " + ModalAdmin.escapeHtml(sub.stripe_subscription_id) + "</div>";
-				html += "<div class='admin-id'>Price: " + ModalAdmin.escapeHtml(sub.stripe_price_id) + "</div>";
+				html += "<div class='admin-id'>Sub: " + ModalAdmin.escapeHtml(sub.paypal_subscription_id) + "</div>";
+				html += "<div class='admin-id'>Plan: " + ModalAdmin.escapeHtml(sub.paypal_plan_id) + "</div>";
 				if (sub.status === "active" || sub.status === "trialing") {
-					html += "<button class='admin-action-btn admin-cancel-sub' data-sub-id='" + ModalAdmin.escapeAttr(sub.stripe_subscription_id) + "' style='margin-top:6px;'>Cancel</button>";
+					html += "<button class='admin-action-btn admin-cancel-sub' data-sub-id='" + ModalAdmin.escapeAttr(sub.paypal_subscription_id) + "' style='margin-top:6px;'>Cancel</button>";
 				}
 				html += "</div>";
 			}
@@ -412,8 +497,8 @@ export class ModalAdmin {
 				html += "<tr><td style='white-space:nowrap;'>" + ModalAdmin.escapeHtml(t.created_at || "") + "</td>";
 				html += "<td>$" + (t.amount_cents / 100).toFixed(2) + " " + ModalAdmin.escapeHtml(t.currency || "usd") + "</td>";
 				html += "<td>" + ModalAdmin.escapeHtml(t.status) + "</td><td>";
-				if (t.stripe_payment_intent && t.status !== "refunded") {
-					html += "<button class='admin-action-btn admin-refund' data-pi='" + ModalAdmin.escapeAttr(t.stripe_payment_intent) + "'>Refund</button>";
+				if (t.paypal_capture_id && t.status !== "refunded") {
+					html += "<button class='admin-action-btn admin-refund' data-pi='" + ModalAdmin.escapeAttr(t.paypal_capture_id) + "'>Refund</button>";
 				}
 				html += "</td></tr>";
 			}
@@ -461,7 +546,7 @@ export class ModalAdmin {
 			refundBtns[i].addEventListener("click", async function () {
 				if (!confirm("Issue full refund?")) return;
 				try {
-					let r = await Api.send("assets/php/admin/issueRefund.php", { "payment_intent": this.getAttribute("data-pi") });
+					let r = await Api.send("assets/php/admin/issueRefund.php", { "capture_id": this.getAttribute("data-pi") });
 					if (r.success) { Toast.success("Refunded."); ModalAdmin.showUserDetail(u.id); } else { Toast.error(r.message || "Failed."); }
 				} catch (e) { Toast.error("Error."); }
 			});
@@ -606,7 +691,7 @@ export class ModalAdmin {
 		html += "<div class='modal-form-title' style='font-size:16px;'>Edit Coupon</div>";
 		html += "<div class='admin-id' style='margin-bottom:12px;'>" + ModalAdmin.escapeHtml(coupon.id) + "</div>";
 		html += "<div class='modal-form-group'><label>Name</label><input type='text' id='admin-coupon-name' value='" + ModalAdmin.escapeAttr(coupon.name || "") + "' /></div>";
-		html += "<div style='font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:8px;'><em>Discount and duration cannot be changed after creation (Stripe limitation).</em></div>";
+		html += "<div style='font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:8px;'><em>Discount type cannot be changed after creation.</em></div>";
 		html += "<div style='font-size:13px;color:rgba(255,255,255,0.7);'>Discount: " + ModalAdmin.escapeHtml(discount) + "</div>";
 		html += "<div style='font-size:13px;color:rgba(255,255,255,0.7);'>Duration: " + ModalAdmin.escapeHtml(dur) + "</div>";
 		html += "<div style='font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:12px;'>Times Redeemed: " + (coupon.times_redeemed || 0) + "</div>";
@@ -645,9 +730,243 @@ export class ModalAdmin {
 		let parts = [];
 		for (let i = 0; i < prices.length; i++) {
 			let pr = prices[i];
-			parts.push("$" + (pr.unit_amount / 100).toFixed(2) + "/" + (pr.recurring ? pr.recurring.interval : "one-time"));
+			let interval = "one-time";
+			if (pr.interval_unit) {
+				interval = pr.interval_unit.toLowerCase();
+			} else if (pr.recurring && pr.recurring.interval) {
+				interval = pr.recurring.interval;
+			}
+			let active = pr.active != 0;
+			let label = "$" + (pr.unit_amount / 100).toFixed(2) + "/" + interval;
+			if (!active) label += " (inactive)";
+			parts.push(label);
 		}
 		return parts.join(", ");
+	}
+
+	// ═══════════════════════════════════════════════
+	//  TAX RATES
+	// ═══════════════════════════════════════════════
+
+	static async loadTaxRates(container) {
+		container.innerHTML = "<div class='admin-loading'>Loading tax rates...</div>";
+		try {
+			let result = await Api.send("assets/php/admin/getTaxRates.php");
+			if (result.success) {
+				ModalAdmin.renderTaxRates(container, result.tax_rates || []);
+			} else {
+				container.innerHTML = "<div class='admin-error'>Failed to load tax rates.</div>";
+			}
+		} catch (e) {
+			container.innerHTML = "<div class='admin-error'>Error loading tax rates.</div>";
+		}
+	}
+
+	static renderTaxRates(container, rates) {
+		let html = "";
+		html += "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;'>";
+		html += "<div class='modal-form-title' style='font-size:16px;margin:0;'>Tax Rates</div>";
+		html += "<button class='modal-form-btn' id='admin-add-tax' style='width:auto;padding:6px 16px;font-size:13px;'>+ Add Tax Rate</button>";
+		html += "</div>";
+
+		if (rates.length === 0) {
+			html += "<div class='admin-muted' style='padding:20px;'>No tax rates configured. Prices are shown without tax.</div>";
+		} else {
+			html += "<div class='admin-table-wrap'><table class='billing-table'>";
+			html += "<thead><tr><th>Name</th><th>Percentage</th><th>Status</th><th></th></tr></thead><tbody>";
+			for (let i = 0; i < rates.length; i++) {
+				let r = rates[i];
+				let isActive = r.active != 0;
+				html += "<tr style='" + (!isActive ? "opacity:0.4;" : "") + "'>";
+				html += "<td>" + ModalAdmin.escapeHtml(r.name) + "</td>";
+				html += "<td>" + parseFloat(r.percentage).toFixed(2) + "%</td>";
+				html += "<td>" + (isActive ? "<span class='admin-badge-active'>Active</span>" : "<span class='admin-badge-inactive'>Inactive</span>") + "</td>";
+				html += "<td>";
+				html += "<button class='admin-action-btn admin-edit-tax' data-tax-id='" + ModalAdmin.escapeAttr(r.id) + "' data-tax-name='" + ModalAdmin.escapeAttr(r.name) + "' data-tax-pct='" + r.percentage + "' data-tax-active='" + (isActive ? "1" : "0") + "' style='font-size:11px;'>Edit</button>";
+				if (isActive) {
+					html += " <button class='admin-action-btn admin-deactivate-tax' data-tax-id='" + ModalAdmin.escapeAttr(r.id) + "' style='font-size:11px;color:rgba(255,80,80,0.9);'>Deactivate</button>";
+				}
+				html += "</td></tr>";
+			}
+			html += "</tbody></table></div>";
+		}
+
+		html += "<div class='modal-form-message' id='admin-msg'></div>";
+		container.innerHTML = html;
+
+		// Add tax button
+		document.getElementById("admin-add-tax")?.addEventListener("click", function () {
+			ModalAdmin.showTaxForm(container, null);
+		});
+
+		// Edit buttons
+		let editBtns = container.querySelectorAll(".admin-edit-tax");
+		for (let i = 0; i < editBtns.length; i++) {
+			editBtns[i].addEventListener("click", function () {
+				ModalAdmin.showTaxForm(container, {
+					id: this.getAttribute("data-tax-id"),
+					name: this.getAttribute("data-tax-name"),
+					percentage: this.getAttribute("data-tax-pct"),
+					active: this.getAttribute("data-tax-active") === "1"
+				});
+			});
+		}
+
+		// Deactivate buttons
+		let deactivateBtns = container.querySelectorAll(".admin-deactivate-tax");
+		for (let i = 0; i < deactivateBtns.length; i++) {
+			deactivateBtns[i].addEventListener("click", async function () {
+				let id = this.getAttribute("data-tax-id");
+				if (!confirm("Deactivate this tax rate?")) return;
+				try {
+					let result = await Api.send("assets/php/admin/deleteTaxRate.php", { "id": id });
+					if (result.success) { Toast.success("Tax rate deactivated."); ModalAdmin.renderSubTab("tax"); }
+					else { Toast.error(result.message || "Failed."); }
+				} catch (e) { Toast.error("Error."); }
+			});
+		}
+	}
+
+	static showTaxForm(container, existing) {
+		let isEdit = existing !== null;
+		let html = "";
+		html += "<button class='modal-form-btn admin-back-btn' id='admin-back'>Back</button>";
+		html += "<div class='modal-form-title' style='font-size:16px;'>" + (isEdit ? "Edit Tax Rate" : "New Tax Rate") + "</div>";
+		html += "<div class='modal-form-group'><label>Name</label><input type='text' id='admin-tax-name' value='" + (isEdit ? ModalAdmin.escapeAttr(existing.name) : "") + "' placeholder='e.g. Sales Tax' /></div>";
+		html += "<div class='modal-form-group'><label>Percentage (%)</label><input type='number' step='0.01' min='0' max='100' id='admin-tax-pct' value='" + (isEdit ? existing.percentage : "0") + "' /></div>";
+		if (isEdit) {
+			html += "<div class='modal-form-group'><label>Active</label><select id='admin-tax-active'><option value='1'" + (existing.active ? " selected" : "") + ">Active</option><option value='0'" + (!existing.active ? " selected" : "") + ">Inactive</option></select></div>";
+		}
+		html += "<button class='modal-form-btn' id='admin-tax-save'>Save</button>";
+		html += "<div class='modal-form-message' id='admin-msg'></div>";
+		container.innerHTML = html;
+
+		document.getElementById("admin-back").addEventListener("click", function () { ModalAdmin.renderSubTab("tax"); });
+		document.getElementById("admin-tax-save").addEventListener("click", async function () {
+			let msg = document.getElementById("admin-msg");
+			let name = (document.getElementById("admin-tax-name")?.value || "").trim();
+			let pct = parseFloat(document.getElementById("admin-tax-pct")?.value || "0");
+			if (!name) { ModalAdmin.setMsg(msg, "Name required.", "error"); return; }
+			if (isNaN(pct) || pct < 0 || pct > 100) { ModalAdmin.setMsg(msg, "Percentage must be 0-100.", "error"); return; }
+			let data = { "name": name, "percentage": pct };
+			if (isEdit) {
+				data["id"] = existing.id;
+				let activeVal = document.getElementById("admin-tax-active")?.value;
+				data["active"] = activeVal === "1";
+			}
+			ModalAdmin.setMsg(msg, "Saving...", "");
+			try {
+				let result = await Api.send("assets/php/admin/saveTaxRate.php", data);
+				if (result.success) { Toast.success("Tax rate saved."); ModalAdmin.renderSubTab("tax"); }
+				else { ModalAdmin.setMsg(msg, result.message || "Failed.", "error"); }
+			} catch (e) { ModalAdmin.setMsg(msg, "Error.", "error"); }
+		});
+	}
+
+	// ═══════════════════════════════════════════════
+	//  TRANSACTIONS
+	// ═══════════════════════════════════════════════
+
+	static async loadTransactions(container) {
+		// Default date range: 1 year ago to today
+		let today = new Date();
+		let yearAgo = new Date();
+		yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+		let defaultFrom = yearAgo.toISOString().split("T")[0];
+		let defaultTo = today.toISOString().split("T")[0];
+
+		let html = "";
+		html += "<div class='modal-form-title' style='font-size:16px;margin-bottom:12px;'>Transactions</div>";
+		html += "<div style='display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;'>";
+		html += "<input type='text' id='admin-tx-search' placeholder='Search user...' style='flex:1;min-width:120px;' />";
+		html += "<label style='font-size:12px;color:rgba(255,255,255,0.5);margin-left:6px;'>From</label>";
+		html += "<input type='date' id='admin-tx-from' value='" + defaultFrom + "' style='font-size:13px;padding:4px 6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#fff;' />";
+		html += "<label style='font-size:12px;color:rgba(255,255,255,0.5);'>To</label>";
+		html += "<input type='date' id='admin-tx-to' value='" + defaultTo + "' style='font-size:13px;padding:4px 6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#fff;' />";
+		html += "<button class='modal-form-btn' id='admin-tx-filter' style='width:auto;padding:6px 16px;font-size:13px;white-space:nowrap;'>Filter</button>";
+		html += "</div>";
+		html += "<div id='admin-tx-results'><div class='admin-muted' style='padding:20px;'>Loading...</div></div>";
+		container.innerHTML = html;
+
+		// Initial load
+		ModalAdmin.fetchTransactions(defaultFrom, defaultTo, "");
+
+		// Filter button
+		document.getElementById("admin-tx-filter")?.addEventListener("click", function () {
+			let search = document.getElementById("admin-tx-search")?.value || "";
+			let from = document.getElementById("admin-tx-from")?.value || "";
+			let to = document.getElementById("admin-tx-to")?.value || "";
+			ModalAdmin.fetchTransactions(from, to, search);
+		});
+
+		// Enter key on search
+		document.getElementById("admin-tx-search")?.addEventListener("keydown", function (e) {
+			if (e.key === "Enter") {
+				document.getElementById("admin-tx-filter")?.click();
+			}
+		});
+	}
+
+	static async fetchTransactions(dateFrom, dateTo, search) {
+		let resultsDiv = document.getElementById("admin-tx-results");
+		if (!resultsDiv) return;
+		resultsDiv.innerHTML = "<div class='admin-loading'>Loading transactions...</div>";
+
+		try {
+			let params = "?date_from=" + encodeURIComponent(dateFrom) + "&date_to=" + encodeURIComponent(dateTo);
+			if (search) params += "&search=" + encodeURIComponent(search);
+			let result = await Api.get("assets/php/admin/getTransactions.php" + params);
+
+			if (!result || !result.success) {
+				resultsDiv.innerHTML = "<div class='admin-error'>Failed to load transactions.</div>";
+				return;
+			}
+
+			let txs = result.transactions || [];
+			let total = result.total || 0;
+
+			if (txs.length === 0) {
+				resultsDiv.innerHTML = "<div class='admin-muted' style='padding:20px;'>No transactions found for this range.</div>";
+				return;
+			}
+
+			let html = "<div style='font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:6px;'>Showing " + txs.length + " of " + total + " transactions</div>";
+			html += "<div class='admin-table-wrap'><table class='billing-table'>";
+			html += "<thead><tr><th>Date</th><th>User</th><th>Amount</th><th>Tax</th><th>Status</th><th>Description</th></tr></thead><tbody>";
+
+			for (let i = 0; i < txs.length; i++) {
+				let t = txs[i];
+				let isRefund = t.status === "refunded";
+				let amountColor = isRefund ? "color:rgba(255,80,80,0.9);" : "color:rgba(80,220,100,0.9);";
+				let amountPrefix = isRefund ? "-" : "+";
+				let amount = (t.amount_cents / 100).toFixed(2);
+				let tax = (t.tax_amount / 100).toFixed(2);
+				let date = ModalAdmin.formatDate(t.created_at);
+
+				html += "<tr>";
+				html += "<td style='white-space:nowrap;font-size:12px;'>" + ModalAdmin.escapeHtml(date) + "</td>";
+				html += "<td style='font-size:12px;'>" + ModalAdmin.escapeHtml(t.username || "Unknown") + "</td>";
+				html += "<td style='" + amountColor + "font-weight:600;white-space:nowrap;'>" + amountPrefix + "$" + amount + " " + ModalAdmin.escapeHtml((t.currency || "usd").toUpperCase()) + "</td>";
+				html += "<td style='font-size:12px;color:rgba(255,255,255,0.5);white-space:nowrap;'>$" + tax + "</td>";
+				html += "<td style='font-size:12px;'>" + ModalAdmin.escapeHtml(t.status || "") + "</td>";
+				html += "<td style='font-size:11px;color:rgba(255,255,255,0.4);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>" + ModalAdmin.escapeHtml(t.description || "") + "</td>";
+				html += "</tr>";
+			}
+
+			html += "</tbody></table></div>";
+			resultsDiv.innerHTML = html;
+
+		} catch (e) {
+			resultsDiv.innerHTML = "<div class='admin-error'>Error loading transactions.</div>";
+		}
+	}
+
+	static formatDate(dateStr) {
+		if (!dateStr) return "";
+		try {
+			let d = new Date(dateStr);
+			return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+		} catch (e) { return dateStr; }
 	}
 
 	static setMsg(elm, text, type) {

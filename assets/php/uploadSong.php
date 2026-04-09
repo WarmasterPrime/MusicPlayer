@@ -45,8 +45,12 @@ if (!isset($_FILES["audio_file"]) || $_FILES["audio_file"]["error"] !== UPLOAD_E
 $title = $_POST["title"] ?? "";
 $artist = $_POST["artist"] ?? "";
 $album = $_POST["album"] ?? "";
+$albumArtist = $_POST["album_artist"] ?? "";
 $genre = $_POST["genre"] ?? "";
+$composer = $_POST["composer"] ?? "";
 $publisher = $_POST["publisher"] ?? "";
+$publishDate = $_POST["publish_date"] ?? "";
+$sourceUrl = $_POST["source_url"] ?? "";
 $keywords = $_POST["keywords"] ?? "";
 
 if (strlen(trim($title)) === 0) {
@@ -81,17 +85,27 @@ try {
 	$fileSize = $file["size"];
 
 	// Insert song metadata
+	$pubDateVal = null;
+	if (strlen(trim($publishDate)) > 0) {
+		$d = DateTime::createFromFormat("Y-m-d", trim($publishDate));
+		if ($d !== false) $pubDateVal = $d->format("Y-m-d");
+	}
+
 	$stmt = $pdo->prepare("
-		INSERT INTO `songs` (`id`, `name`, `artist`, `album`, `genre`, `publisher`, `keywords`, `uploaded_by`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO `songs` (`id`, `name`, `artist`, `album`, `album_artist`, `genre`, `composer`, `publisher`, `published_date`, `source_url`, `keywords`, `uploaded_by`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	");
 	$stmt->execute([
 		$songId,
 		trim($title),
 		trim($artist),
 		trim($album),
+		trim($albumArtist),
 		trim($genre),
+		trim($composer),
 		trim($publisher),
+		$pubDateVal,
+		trim($sourceUrl),
 		trim($keywords),
 		$user["id"]
 	]);

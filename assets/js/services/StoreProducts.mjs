@@ -105,6 +105,7 @@ export class StoreProducts {
 			html += " <span class='product-card-interval'>/ " + StoreProducts.escapeHtml(price.interval) + "</span>";
 		}
 		html += "</div>";
+		html += "<div id='product-tax-line' style='font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px;'></div>";
 
 		if (features.length > 0) {
 			html += "<ul class='product-features'>";
@@ -122,7 +123,9 @@ export class StoreProducts {
 			for (let i = 0; i < product.prices.length; i++) {
 				let p = product.prices[i];
 				let label = StoreProducts.formatPrice(p.unit_amount, p.currency);
-				if (p.recurring && p.recurring.interval) {
+				if (p.interval_unit) {
+					label += " / " + p.interval_unit.toLowerCase();
+				} else if (p.recurring && p.recurring.interval) {
 					label += " / " + p.recurring.interval;
 				}
 				html += "<option value='" + StoreProducts.escapeAttr(p.id) + "'>" + StoreProducts.escapeHtml(label) + "</option>";
@@ -131,11 +134,32 @@ export class StoreProducts {
 			html += "</div>";
 		}
 
+		// Coupon code input
+		html += "<div class='product-coupon-wrap' style='margin-top:12px;'>";
+		html += "<label style='font-size:13px;color:rgba(255,255,255,0.6);'>Coupon Code</label>";
+		html += "<div style='display:flex;gap:8px;margin-top:4px;'>";
+		html += "<input type='text' id='coupon-code' placeholder='Enter code' style='flex:1;font-size:13px;padding:6px 10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#fff;' />";
+		html += "<button class='modal-form-btn' id='coupon-apply' style='width:auto;padding:6px 14px;font-size:12px;'>Apply</button>";
+		html += "</div>";
+		html += "<div id='coupon-message' style='font-size:12px;margin-top:4px;min-height:16px;'></div>";
+		html += "</div>";
+
 		let btnLabel = price.isRecurring ? "Subscribe" : "Purchase";
 		html += "<button class='modal-form-btn product-buy-btn' id='product-buy'>" + btnLabel + "</button>";
 		html += "</div>";
 
 		Modal.setContent(html);
+
+		// Fetch and display tax info
+		Api.get("assets/php/store/getTaxRate.php").then(function (taxResult) {
+			let taxLine = document.getElementById("product-tax-line");
+			if (taxLine && taxResult && taxResult.success && taxResult.tax_rate) {
+				let pct = parseFloat(taxResult.tax_rate.percentage);
+				if (pct > 0) {
+					taxLine.textContent = "+ " + pct.toFixed(2) + "% tax applied at checkout";
+				}
+			}
+		}).catch(function () {});
 
 		setTimeout(function () {
 			let backBtn = document.getElementById("product-back");
@@ -143,6 +167,40 @@ export class StoreProducts {
 				backBtn.addEventListener("click", function () {
 					if (StoreProducts.onBackToStore) {
 						StoreProducts.onBackToStore();
+					}
+				});
+			}
+
+			// Coupon apply button
+			let couponApplyBtn = document.getElementById("coupon-apply");
+			if (couponApplyBtn) {
+				couponApplyBtn.addEventListener("click", async function () {
+					let codeInput = document.getElementById("coupon-code");
+					let msgEl = document.getElementById("coupon-message");
+					let code = (codeInput?.value || "").trim();
+					if (code.length === 0) {
+						if (msgEl) { msgEl.textContent = "Enter a coupon code."; msgEl.style.color = "rgba(255,80,80,0.8)"; }
+						return;
+					}
+					if (msgEl) { msgEl.textContent = "Validating..."; msgEl.style.color = "rgba(255,255,255,0.5)"; }
+					try {
+						let result = await Api.send("assets/php/store/validateCoupon.php", { "code": code });
+						if (result && result.success && result.coupon) {
+							let c = result.coupon;
+							let discountText = "";
+							if (c.percent_off !== null) {
+								discountText = c.percent_off + "% off";
+							} else if (c.amount_off !== null) {
+								discountText = "$" + (c.amount_off / 100).toFixed(2) + " off";
+							}
+							if (msgEl) { msgEl.textContent = "Coupon applied: " + discountText; msgEl.style.color = "rgba(80,220,80,0.9)"; }
+							codeInput.dataset.validated = "true";
+						} else {
+							if (msgEl) { msgEl.textContent = result.message || "Invalid coupon."; msgEl.style.color = "rgba(255,80,80,0.8)"; }
+							codeInput.dataset.validated = "";
+						}
+					} catch (e) {
+						if (msgEl) { msgEl.textContent = "Error validating coupon."; msgEl.style.color = "rgba(255,80,80,0.8)"; }
 					}
 				});
 			}
@@ -159,7 +217,12 @@ export class StoreProducts {
 					}
 					if (priceId.length > 0) {
 						let mode = price.isRecurring ? "subscription" : "payment";
-						StoreCheckout.startCheckout(priceId, mode);
+						let couponInput = document.getElementById("coupon-code");
+						let couponCode = "";
+						if (couponInput && couponInput.dataset.validated === "true") {
+							couponCode = couponInput.value.trim();
+						}
+						StoreCheckout.startCheckout(priceId, mode, couponCode);
 					} else {
 						Toast.error("No price available.");
 					}
@@ -181,7 +244,11 @@ export class StoreProducts {
 		let display = StoreProducts.formatPrice(p.unit_amount, p.currency);
 		let interval = null;
 		let isRecurring = false;
-		if (p.recurring && p.recurring.interval) {
+		// Support both local DB format (interval_unit) and legacy Stripe format (recurring.interval)
+		if (p.interval_unit) {
+			interval = p.interval_unit.toLowerCase();
+			isRecurring = true;
+		} else if (p.recurring && p.recurring.interval) {
 			interval = p.recurring.interval;
 			isRecurring = true;
 		}
@@ -210,6 +277,10 @@ export class StoreProducts {
 	 */
 	static parseFeatures(product) {
 		let meta = product.metadata || {};
+		// Handle metadata as JSON string (local DB) or object (legacy)
+		if (typeof meta === "string") {
+			try { meta = JSON.parse(meta); } catch (e) { meta = {}; }
+		}
 		let featStr = meta.features || "";
 		if (featStr.length === 0) return [];
 		return featStr.split(",").map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });

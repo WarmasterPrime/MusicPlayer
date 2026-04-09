@@ -1,11 +1,11 @@
 <?php
 /**
- * Creates a Stripe product.
+ * Creates a product in the local database and optionally syncs to PayPal.
  * Requires StoreAdmin authority.
  */
 
 require_once __DIR__ . "/../session.php";
-require_once __DIR__ . "/../System/Payments/StripeApi.php";
+require_once __DIR__ . "/../System/Payments/PayPalProduct.php";
 
 header("Content-Type: application/json");
 
@@ -22,7 +22,8 @@ if (!hasAuthority("StoreAdmin")) {
 $input = json_decode(file_get_contents("php://input"), true);
 $name = $input["name"] ?? "";
 $description = $input["description"] ?? "";
-$metadata = $input["metadata"] ?? [];
+$metadata = isset($input["metadata"]) && is_array($input["metadata"]) ? json_encode($input["metadata"]) : null;
+$syncToPayPal = ($input["sync_to_paypal"] ?? true) !== false;
 
 if (empty($name)) {
 	echo json_encode(["success" => false, "message" => "Product name required."]);
@@ -30,23 +31,12 @@ if (empty($name)) {
 }
 
 try {
-	StripeApi::init("development");
+	$result = PayPalProduct::create($name, $description, $metadata, $syncToPayPal);
 
-	$data = [
-		"name" => $name,
-		"description" => $description
-	];
-
-	if (!empty($metadata) && is_array($metadata)) {
-		$data["metadata"] = $metadata;
-	}
-
-	$result = StripeApi::post("products", $data);
-
-	if (isset($result["id"])) {
-		echo json_encode(["success" => true, "product" => $result]);
+	if (isset($result["error"])) {
+		echo json_encode(["success" => false, "message" => $result["error"]]);
 	} else {
-		echo json_encode(["success" => false, "message" => $result["_error"] ?? "Failed to create product."]);
+		echo json_encode(["success" => true, "product" => $result]);
 	}
 } catch (Exception $e) {
 	echo json_encode(["success" => false, "message" => "Error creating product."]);

@@ -1,48 +1,64 @@
 <?php
 /**
- * Stripe webhook endpoint.
- * Receives events from Stripe, verifies the signature, and processes them.
+ * PayPal webhook endpoint.
+ * Receives events from PayPal, verifies the signature, and processes them.
  *
- * The webhook signing secret should be stored in stripe.ini as webhook_secret.
+ * The webhook ID should be stored in paypal.ini as webhook_id.
  */
 
-require_once __DIR__ . "/../System/Payments/StripeApi.php";
-require_once __DIR__ . "/../System/Payments/StripeWebhook.php";
-require_once __DIR__ . "/../System/Payments/Stripe.php";
+require_once __DIR__ . "/../System/Payments/PayPalApi.php";
+require_once __DIR__ . "/../System/Payments/PayPalWebhook.php";
+require_once __DIR__ . "/../System/Payments/PayPal.php";
 
 header("Content-Type: application/json");
 
 // Read raw payload
 $payload = file_get_contents("php://input");
-$sigHeader = $_SERVER["HTTP_STRIPE_SIGNATURE"] ?? "";
 
-if (strlen($payload) === 0 || strlen($sigHeader) === 0) {
+if (strlen($payload) === 0) {
 	http_response_code(400);
-	echo json_encode(["error" => "Missing payload or signature."]);
+	echo json_encode(["error" => "Missing payload."]);
 	exit;
 }
 
-// Load webhook secret
-$keys = Stripe::loadKeys();
-$webhookSecret = $keys["webhook"]["secret"] ?? $keys["development"]["webhook_secret"] ?? "";
-
-if (strlen($webhookSecret) === 0) {
-	// If no webhook secret configured, skip verification (development only)
-	$event = json_decode($payload, true);
-} else {
-	// Verify signature
-	$event = StripeApi::verifyWebhookSignature($payload, $sigHeader, $webhookSecret);
+// Collect all PayPal webhook headers
+$headers = [];
+foreach ($_SERVER as $key => $value) {
+	if (strpos($key, "HTTP_PAYPAL_") === 0) {
+		// Convert HTTP_PAYPAL_AUTH_ALGO to PAYPAL-AUTH-ALGO
+		$headerName = str_replace("_", "-", substr($key, 5));
+		$headers[$headerName] = $value;
+	}
 }
 
+// Load webhook ID from config
+$keys = PayPal::loadKeys();
+$webhookId = $keys["development"]["webhook_id"] ?? $keys["webhook"]["id"] ?? "";
+
+if (strlen($webhookId) > 0 && !empty($headers)) {
+	// Verify signature
+	PayPalApi::init("development");
+	$valid = PayPalWebhook::verify($headers, $payload, $webhookId);
+	if (!$valid) {
+		http_response_code(400);
+		echo json_encode(["error" => "Invalid signature."]);
+		exit;
+	}
+} else {
+	// Development mode: skip verification if no webhook ID configured
+}
+
+$event = json_decode($payload, true);
 if ($event === null) {
 	http_response_code(400);
-	echo json_encode(["error" => "Invalid signature."]);
+	echo json_encode(["error" => "Invalid JSON payload."]);
 	exit;
 }
 
 // Process the event
 try {
-	$result = StripeWebhook::process($event);
+	PayPalApi::init("development");
+	$result = PayPalWebhook::process($event);
 	http_response_code(200);
 	echo json_encode($result);
 } catch (Exception $e) {

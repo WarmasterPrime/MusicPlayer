@@ -1,11 +1,12 @@
 <?php
 /**
- * Cancels a user's subscription (sets cancel_at_period_end).
+ * Cancels a user's PayPal subscription.
  * Requires authentication. Only allows cancelling own subscriptions.
  */
 
 require_once __DIR__ . "/../session.php";
-require_once __DIR__ . "/../System/Payments/StripeSubscription.php";
+require_once __DIR__ . "/../System/Payments/PayPalApi.php";
+require_once __DIR__ . "/../System/Payments/PayPalSubscription.php";
 require_once __DIR__ . "/../System/Database.php";
 
 header("Content-Type: application/json");
@@ -27,24 +28,27 @@ if (strlen($subscriptionId) === 0) {
 try {
 	// Verify the subscription belongs to this user
 	$pdo = Database::connect("store");
-	$stmt = $pdo->prepare("SELECT `user_id` FROM `subscriptions` WHERE `stripe_subscription_id` = ?");
-	$stmt->execute([$subscriptionId]);
-	$ownerId = $stmt->fetchColumn();
+	$stmt = $pdo->prepare("SELECT `user_id`, `paypal_subscription_id` FROM `subscriptions` WHERE `id` = ? OR `paypal_subscription_id` = ?");
+	$stmt->execute([$subscriptionId, $subscriptionId]);
+	$sub = $stmt->fetch();
 
-	if ($ownerId !== $user["id"]) {
+	if (!$sub || $sub["user_id"] !== $user["id"]) {
 		echo json_encode(["success" => false, "message" => "Subscription not found."]);
 		exit;
 	}
 
-	// Cancel at period end (not immediately)
-	$result = StripeSubscription::cancel($subscriptionId, false);
+	$paypalSubId = $sub["paypal_subscription_id"];
+
+	// Cancel via PayPal API
+	PayPalApi::init("development");
+	$result = PayPalSubscription::cancel($paypalSubId);
 
 	if (isset($result["error"])) {
 		echo json_encode(["success" => false, "message" => $result["error"]]);
 		exit;
 	}
 
-	echo json_encode(["success" => true, "message" => "Subscription will cancel at end of billing period."]);
+	echo json_encode(["success" => true, "message" => "Subscription cancelled."]);
 
 } catch (Exception $e) {
 	echo json_encode(["success" => false, "message" => "Failed to cancel subscription."]);

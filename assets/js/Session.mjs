@@ -1,5 +1,6 @@
 import { Server } from "./lib/Server.mjs";
 import { ServerResponse } from "./lib/ServerResponse.mjs";
+import { Api } from "./Api.mjs";
 
 /**
  * Manages client-side session state by communicating with PHP session endpoints.
@@ -10,6 +11,7 @@ export class Session {
 	static authority = "";
 	static subscriptionTier = "free";
 	static features = {};
+	static songDisplayFormat = "artist-title";
 
 	/**
 	 * Checks the current session state with the server.
@@ -29,6 +31,7 @@ export class Session {
 				if (data && data.loggedIn === true && data.user) {
 					Session.user = data.user;
 					Session.authority = data.user.authority || "";
+					Session.loadPreferences();
 					resolve(true);
 				} else {
 					Session.user = null;
@@ -84,9 +87,24 @@ export class Session {
 				Session.authority = "";
 				Session.subscriptionTier = "free";
 				Session.features = {};
+				Session.songDisplayFormat = "artist-title";
 				resolve();
 			});
 		});
+	}
+
+	/**
+	 * Loads user display preferences from the server.
+	 */
+	static async loadPreferences() {
+		try {
+			let result = await Api.get("assets/php/getUserPreferences.php");
+			if (result && result.success && result.preferences) {
+				if (result.preferences["song_display_format"]) {
+					Session.songDisplayFormat = result.preferences["song_display_format"];
+				}
+			}
+		} catch (e) {}
 	}
 
 	/**

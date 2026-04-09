@@ -54,6 +54,14 @@ export class ModalProfile {
 		html += "<div class='modal-form-group'><label>Date of Birth</label><input type='date' id='profile-dob' value='' /></div>";
 
 		html += "<hr style='border-color:rgba(255,50,100,0.2);margin:16px 0;' />";
+		html += "<div class='modal-form-title' style='font-size:16px;'>Display Preferences</div>";
+		html += "<div class='modal-form-group'><label>Song Display Format</label>";
+		html += "<select id='profile-song-display-format'>";
+		html += "<option value='artist-title'>Artist - Title</option>";
+		html += "<option value='title-artist'>Title - Artist</option>";
+		html += "</select></div>";
+
+		html += "<hr style='border-color:rgba(255,50,100,0.2);margin:16px 0;' />";
 		html += "<div class='modal-form-title' style='font-size:16px;'>Change Password</div>";
 		html += "<div class='modal-form-group'><label>New Password</label><input type='password' id='profile-new-password' autocomplete='new-password' /></div>";
 		html += "<div class='modal-form-group'><label>Confirm Password</label><input type='password' id='profile-confirm-password' autocomplete='new-password' /></div>";
@@ -135,6 +143,23 @@ export class ModalProfile {
 						Toast.error(result.message || "Failed.");
 					}
 				} catch (e) { Toast.error("Error removing background."); }
+			});
+		}
+
+		// Save song display format on change
+		let displayFormatSelect = document.getElementById("profile-song-display-format");
+		if (displayFormatSelect) {
+			displayFormatSelect.addEventListener("change", async function () {
+				try {
+					let result = await Api.send("assets/php/saveUserPreference.php", {
+						"key": "song_display_format",
+						"value": this.value
+					});
+					if (result.success) {
+						Toast.success("Display format saved.");
+						Session.songDisplayFormat = this.value;
+					}
+				} catch (e) {}
 			});
 		}
 
@@ -233,6 +258,19 @@ export class ModalProfile {
 					let preview = document.getElementById("background-pic-preview");
 					if (preview)
 						preview.style.backgroundImage = "url('assets/php/getBackgroundPicture.php?t=" + Date.now() + "')";
+				}
+			}
+		} catch (e) {}
+
+		// Load display preferences
+		try {
+			let prefResult = await Api.get("assets/php/getUserPreferences.php");
+			if (prefResult.success && prefResult.preferences) {
+				let fmt = prefResult.preferences["song_display_format"];
+				if (fmt) {
+					let sel = document.getElementById("profile-song-display-format");
+					if (sel) sel.value = fmt;
+					Session.songDisplayFormat = fmt;
 				}
 			}
 		} catch (e) {}

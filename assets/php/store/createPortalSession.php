@@ -1,12 +1,13 @@
 <?php
 /**
- * Creates a Stripe Customer Portal session for self-service billing management.
+ * Returns a link to manage the user's PayPal subscription.
+ * PayPal doesn't have a customer portal like Stripe, so this returns
+ * a direct link to manage subscriptions on PayPal.
  * Requires authentication.
  */
 
 require_once __DIR__ . "/../session.php";
-require_once __DIR__ . "/../System/Payments/StripeApi.php";
-require_once __DIR__ . "/../System/Payments/StripeCustomer.php";
+require_once __DIR__ . "/../System/Payments/PayPalSubscription.php";
 
 header("Content-Type: application/json");
 
@@ -18,32 +19,20 @@ if (!isLoggedIn()) {
 $user = getCurrentUser();
 
 try {
-	$customerId = StripeCustomer::getCustomerId($user["id"]);
-	if (!$customerId) {
-		echo json_encode(["success" => false, "message" => "No billing account found."]);
+	$activeSub = PayPalSubscription::getActiveForUser($user["id"]);
+
+	if (!$activeSub) {
+		echo json_encode(["success" => false, "message" => "No active subscription found."]);
 		exit;
 	}
 
-	// Build return URL
-	$baseUrl = (isset($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] === "on" ? "https" : "http")
-		. "://" . ($_SERVER["HTTP_HOST"] ?? "localhost");
-	$basePath = dirname(dirname(dirname(dirname($_SERVER["SCRIPT_NAME"]))));
-	$returnUrl = rtrim($baseUrl . $basePath, "/") . "/index.html";
-
-	$result = StripeApi::post("billing_portal/sessions", [
-		"customer" => $customerId,
-		"return_url" => $returnUrl
-	]);
-
-	if (isset($result["_error"])) {
-		$msg = $result["error"]["message"] ?? "Failed to create portal session.";
-		echo json_encode(["success" => false, "message" => $msg]);
-		exit;
-	}
+	// PayPal sandbox subscription management URL
+	$paypalSubId = $activeSub["paypal_subscription_id"];
+	$portalUrl = "https://www.sandbox.paypal.com/myaccount/autopay/connect/" . $paypalSubId;
 
 	echo json_encode([
 		"success" => true,
-		"portal_url" => $result["url"] ?? ""
+		"portal_url" => $portalUrl
 	]);
 
 } catch (Exception $e) {

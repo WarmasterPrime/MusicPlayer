@@ -2,27 +2,32 @@ import { Api } from "../Api.mjs";
 import { Toast } from "../Toast.mjs";
 
 /**
- * Handles Stripe Checkout session creation and redirect.
+ * Handles PayPal checkout session creation and redirect.
  */
 export class StoreCheckout {
 
 	/**
-	 * Creates a checkout session and redirects to Stripe.
-	 * @param {string} priceId - The Stripe price ID.
+	 * Creates a checkout session and redirects to PayPal for approval.
+	 * @param {string} priceId - The local price ID.
 	 * @param {string} mode - "subscription" or "payment".
+	 * @param {string} [couponCode] - Optional coupon code.
 	 */
-	static async startCheckout(priceId, mode) {
+	static async startCheckout(priceId, mode, couponCode) {
 		Toast.success("Preparing checkout...");
 
 		try {
-			let result = await Api.send("assets/php/store/createCheckoutSession.php", {
+			let payload = {
 				"price_id": priceId,
 				"mode": mode || "subscription"
-			});
+			};
+			if (couponCode && couponCode.length > 0) {
+				payload["coupon_code"] = couponCode;
+			}
+			let result = await Api.send("assets/php/store/createCheckoutSession.php", payload);
 
-			if (result && result.success && result.checkout_url) {
-				// Redirect to Stripe Checkout
-				window.location.href = result.checkout_url;
+			if (result && result.success && result.approval_url) {
+				// Redirect to PayPal for approval
+				window.location.href = result.approval_url;
 			} else {
 				Toast.error(result.message || "Failed to create checkout session.");
 			}
@@ -41,7 +46,6 @@ export class StoreCheckout {
 
 		if (status === "success") {
 			Toast.success("Payment successful! Thank you.");
-			// Clean up the URL
 			StoreCheckout.cleanUrl("checkout");
 		} else if (status === "cancel") {
 			Toast.error("Checkout was cancelled.");

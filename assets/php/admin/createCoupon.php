@@ -1,11 +1,11 @@
 <?php
 /**
- * Creates a Stripe coupon.
+ * Creates a coupon in the local database.
  * Requires StoreAdmin authority.
  */
 
 require_once __DIR__ . "/../session.php";
-require_once __DIR__ . "/../System/Payments/StripeApi.php";
+require_once __DIR__ . "/../System/Database.php";
 
 header("Content-Type: application/json");
 
@@ -26,6 +26,7 @@ $amountOff = $input["amount_off"] ?? null;
 $currency = $input["currency"] ?? "usd";
 $duration = $input["duration"] ?? "once"; // once, repeating, forever
 $durationInMonths = $input["duration_in_months"] ?? null;
+$maxRedemptions = $input["max_redemptions"] ?? null;
 
 if (empty($name)) {
 	echo json_encode(["success" => false, "message" => "Coupon name required."]);
@@ -38,31 +39,31 @@ if ($percentOff === null && $amountOff === null) {
 }
 
 try {
-	StripeApi::init("development");
+	$pdo = Database::connect("store");
+	$id = Database::generateId(255);
 
-	$data = [
-		"name" => $name,
-		"duration" => $duration
-	];
+	$stmt = $pdo->prepare("
+		INSERT INTO `coupons` (`id`, `name`, `percent_off`, `amount_off`, `currency`, `duration`, `duration_in_months`, `max_redemptions`, `active`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+	");
+	$stmt->execute([
+		$id,
+		$name,
+		$percentOff !== null ? floatval($percentOff) : null,
+		$amountOff !== null ? intval($amountOff) : null,
+		$currency,
+		$duration,
+		$duration === "repeating" && $durationInMonths !== null ? intval($durationInMonths) : null,
+		$maxRedemptions !== null ? intval($maxRedemptions) : null
+	]);
 
-	if ($percentOff !== null) {
-		$data["percent_off"] = floatval($percentOff);
-	} else {
-		$data["amount_off"] = intval($amountOff);
-		$data["currency"] = $currency;
-	}
+	// Fetch the created coupon
+	$stmt = $pdo->prepare("SELECT * FROM `coupons` WHERE `id` = ?");
+	$stmt->execute([$id]);
+	$coupon = $stmt->fetch();
 
-	if ($duration === "repeating" && $durationInMonths !== null) {
-		$data["duration_in_months"] = intval($durationInMonths);
-	}
+	echo json_encode(["success" => true, "coupon" => $coupon]);
 
-	$result = StripeApi::post("coupons", $data);
-
-	if (isset($result["id"])) {
-		echo json_encode(["success" => true, "coupon" => $result]);
-	} else {
-		echo json_encode(["success" => false, "message" => $result["_error"] ?? "Failed to create coupon."]);
-	}
 } catch (Exception $e) {
 	echo json_encode(["success" => false, "message" => "Error creating coupon."]);
 }

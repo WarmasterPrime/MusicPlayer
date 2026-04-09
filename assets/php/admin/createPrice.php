@@ -1,11 +1,12 @@
 <?php
 /**
- * Creates a Stripe price for a product.
+ * Creates a price (billing plan) for a product.
+ * Stored locally and optionally synced to PayPal as a billing plan.
  * Requires StoreAdmin authority.
  */
 
 require_once __DIR__ . "/../session.php";
-require_once __DIR__ . "/../System/Payments/StripeApi.php";
+require_once __DIR__ . "/../System/Payments/PayPalProduct.php";
 
 header("Content-Type: application/json");
 
@@ -22,8 +23,10 @@ if (!hasAuthority("StoreAdmin")) {
 $input = json_decode(file_get_contents("php://input"), true);
 $productId = $input["product_id"] ?? "";
 $unitAmount = intval($input["unit_amount"] ?? 0);
-$currency = $input["currency"] ?? "usd";
-$interval = $input["interval"] ?? "month"; // month, year
+$currency = strtoupper($input["currency"] ?? "USD");
+$intervalUnit = strtoupper($input["interval"] ?? $input["interval_unit"] ?? "MONTH");
+$intervalCount = intval($input["interval_count"] ?? 1);
+$syncToPayPal = ($input["sync_to_paypal"] ?? true) !== false;
 
 if (empty($productId) || $unitAmount <= 0) {
 	echo json_encode(["success" => false, "message" => "Product ID and unit amount (in cents) required."]);
@@ -31,21 +34,12 @@ if (empty($productId) || $unitAmount <= 0) {
 }
 
 try {
-	StripeApi::init("development");
+	$result = PayPalProduct::createPrice($productId, $unitAmount, $currency, $intervalUnit, $intervalCount, $syncToPayPal);
 
-	$data = [
-		"product" => $productId,
-		"unit_amount" => $unitAmount,
-		"currency" => $currency,
-		"recurring" => ["interval" => $interval]
-	];
-
-	$result = StripeApi::post("prices", $data);
-
-	if (isset($result["id"])) {
-		echo json_encode(["success" => true, "price" => $result]);
+	if (isset($result["error"])) {
+		echo json_encode(["success" => false, "message" => $result["error"]]);
 	} else {
-		echo json_encode(["success" => false, "message" => $result["_error"] ?? "Failed to create price."]);
+		echo json_encode(["success" => true, "price" => $result]);
 	}
 } catch (Exception $e) {
 	echo json_encode(["success" => false, "message" => "Error creating price."]);

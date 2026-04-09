@@ -79,7 +79,7 @@ class Player {
 	 */
 	set songName(value) {
 		this._songName=value;
-		this.display=this.songArtist + " - " + this.songName;
+		this.display=this.formatDisplay();
 	}
 	/**
 	 * Returns a string representation of the artist of the song.
@@ -92,7 +92,18 @@ class Player {
 	 */
 	set songArtist(value) {
 		this._songArtist=value;
-		this.display=this.songArtist + " - " + this.songName;
+		this.display=this.formatDisplay();
+	}
+	/**
+	 * Formats display based on user preference.
+	 */
+	formatDisplay() {
+		var artist = this._songArtist || "";
+		var title = this._songName || "";
+		if (typeof Session !== "undefined" && Session.songDisplayFormat === "title-artist") {
+			return title + " - " + artist;
+		}
+		return artist + " - " + title;
 	}
 	/**
 	 * Returns a string representation of the song name and song artist that is displayed on the song title element.
@@ -239,7 +250,7 @@ class Player {
 	 */
 	play(source=undefined, overrideUserActivation=false) {
 		source=Player.getValueFromServerResponse(source);
-		this.display=this.songName + " - " + this.songArtist;
+		this.display=this.formatDisplay();
 		this.processingPlayRequest=true;
 		let iniTmp=window.location.protocol + "//" + window.location.hostname + "/files/Music/";
 		let tmpSource=source.startsWith(iniTmp) ? source : UrlParams.combine(iniTmp, source);
