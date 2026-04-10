@@ -1,0 +1,330 @@
+/* ===================================================================
+   Color Picker - Sci-Fi Themed HSV Picker
+   Prefix: .cp-
+   =================================================================== */
+
+/* Overlay */
+#color-picker-modal {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	z-index: 10000;
+	display: none;
+	justify-content: center;
+	align-items: center;
+	background-color: rgba(0, 0, 0, 0.55);
+}
+#color-picker-modal.cp-visible {
+	display: flex;
+}
+
+/* Main container */
+.cp-container {
+	position: relative;
+	width: 320px;
+	background: linear-gradient(145deg, rgba(18, 14, 28, 0.96), rgba(40, 12, 24, 0.96));
+	border: 1px solid var(--accent-border, rgba(255, 50, 100, 0.35));
+	border-radius: 10px;
+	padding: 16px;
+	box-shadow:
+		0 0 24px rgba(255, 50, 100, 0.18),
+		0 0 80px rgba(255, 50, 100, 0.06),
+		inset 0 1px 0 rgba(255, 255, 255, 0.06);
+	backdrop-filter: blur(18px);
+	-webkit-backdrop-filter: blur(18px);
+	font-family: arial, sans-serif;
+	color: var(--text-primary, #FFF);
+	user-select: none;
+}
+
+/* Drag handle / header */
+.cp-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12px;
+	cursor: grab;
+	padding-bottom: 8px;
+	border-bottom: 1px solid rgba(255, 50, 100, 0.15);
+}
+.cp-header:active {
+	cursor: grabbing;
+}
+.cp-title {
+	font-size: 12px;
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 1.2px;
+	color: var(--accent, rgba(255, 50, 100, 1));
+}
+
+/* Close button */
+.cp-close {
+	width: 26px;
+	height: 26px;
+	background-color: rgba(255, 50, 100, 0.2);
+	color: #FFF;
+	border: 1px solid rgba(255, 50, 100, 0.35);
+	border-radius: 50%;
+	font-family: arial, sans-serif;
+	font-size: 13px;
+	font-weight: bold;
+	cursor: pointer;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	transition: background-color 0.2s;
+	line-height: 1;
+}
+.cp-close:hover {
+	background-color: rgba(255, 50, 100, 0.5);
+	box-shadow: 0 0 8px rgba(255, 50, 100, 0.3);
+}
+
+/* Saturation / Brightness gradient area */
+.cp-sv-area {
+	position: relative;
+	width: 100%;
+	height: 200px;
+	border-radius: 6px;
+	overflow: hidden;
+	cursor: crosshair;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.cp-sv-canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+/* SV cursor */
+.cp-sv-cursor {
+	position: absolute;
+	width: 14px;
+	height: 14px;
+	border: 2px solid #FFF;
+	border-radius: 50%;
+	box-shadow: 0 0 3px rgba(0, 0, 0, 0.6), inset 0 0 2px rgba(0, 0, 0, 0.3);
+	pointer-events: none;
+	transform: translate(-50%, -50%);
+}
+
+/* Sliders row: hue + alpha side by side */
+.cp-sliders {
+	display: flex;
+	gap: 10px;
+	margin-top: 10px;
+	align-items: stretch;
+}
+
+/* Hue strip */
+.cp-hue-wrap,
+.cp-alpha-wrap {
+	position: relative;
+	flex: 1;
+	height: 18px;
+	border-radius: 4px;
+	overflow: hidden;
+	cursor: pointer;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.cp-hue-canvas,
+.cp-alpha-canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+/* Slider thumb (shared) */
+.cp-hue-thumb,
+.cp-alpha-thumb {
+	position: absolute;
+	top: -1px;
+	width: 6px;
+	height: calc(100% + 2px);
+	background: #FFF;
+	border: 1px solid rgba(0, 0, 0, 0.4);
+	border-radius: 2px;
+	pointer-events: none;
+	transform: translateX(-50%);
+	box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Preview + Inputs row */
+.cp-controls {
+	display: flex;
+	gap: 10px;
+	margin-top: 12px;
+	align-items: flex-start;
+}
+
+/* Preview swatch */
+.cp-preview {
+	width: 42px;
+	height: 42px;
+	border-radius: 6px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	flex-shrink: 0;
+	background-image:
+		linear-gradient(45deg, rgba(255, 255, 255, 0.08) 25%, transparent 25%),
+		linear-gradient(-45deg, rgba(255, 255, 255, 0.08) 25%, transparent 25%),
+		linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.08) 75%),
+		linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.08) 75%);
+	background-size: 8px 8px;
+	background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+	overflow: hidden;
+}
+.cp-preview-inner {
+	width: 100%;
+	height: 100%;
+}
+
+/* Input group container */
+.cp-inputs {
+	display: flex;
+	gap: 6px;
+	flex: 1;
+	min-width: 0;
+}
+
+/* Individual input column */
+.cp-input-col {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	flex: 1;
+	min-width: 0;
+}
+.cp-input-col.cp-hex-col {
+	flex: 2;
+}
+.cp-input-label {
+	font-size: 9px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--text-muted, rgba(255, 255, 255, 0.4));
+	text-align: center;
+}
+.cp-input {
+	width: 100%;
+	padding: 5px 2px;
+	background-color: var(--input-bg, rgba(0, 0, 0, 0.4));
+	border: 1px solid rgba(255, 50, 100, 0.18);
+	border-radius: 4px;
+	color: var(--text-primary, #FFF);
+	font-family: 'Consolas', 'Courier New', monospace;
+	font-size: 12px;
+	text-align: center;
+	outline: none;
+	box-sizing: border-box;
+}
+.cp-input:focus {
+	border-color: rgba(255, 50, 100, 0.5);
+	box-shadow: 0 0 6px rgba(255, 50, 100, 0.15);
+}
+.cp-input[type="number"] {
+	-moz-appearance: textfield;
+}
+.cp-input[type="number"]::-webkit-outer-spin-button,
+.cp-input[type="number"]::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+/* Alpha input column */
+.cp-input-col.cp-alpha-col {
+	flex: 1;
+}
+
+/* History section */
+.cp-history-section {
+	margin-top: 12px;
+	padding-top: 10px;
+	border-top: 1px solid rgba(255, 50, 100, 0.12);
+}
+.cp-history-label {
+	font-size: 9px;
+	text-transform: uppercase;
+	letter-spacing: 0.8px;
+	color: var(--text-muted, rgba(255, 255, 255, 0.35));
+	margin-bottom: 6px;
+}
+.cp-history-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+.cp-history-swatch {
+	width: 22px;
+	height: 22px;
+	border-radius: 4px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	cursor: pointer;
+	transition: transform 0.15s, border-color 0.15s;
+	flex-shrink: 0;
+}
+.cp-history-swatch:hover {
+	transform: scale(1.2);
+	border-color: rgba(255, 50, 100, 0.6);
+	box-shadow: 0 0 6px rgba(255, 50, 100, 0.25);
+}
+
+/* Empty history placeholder */
+.cp-history-empty {
+	font-size: 10px;
+	color: var(--text-muted, rgba(255, 255, 255, 0.25));
+	font-style: italic;
+}
+
+/* Scrollbar for history if it overflows */
+.cp-history-grid::-webkit-scrollbar {
+	height: 4px;
+}
+.cp-history-grid::-webkit-scrollbar-track {
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 2px;
+}
+.cp-history-grid::-webkit-scrollbar-thumb {
+	background: rgba(255, 50, 100, 0.3);
+	border-radius: 2px;
+}
+
+/* Subtle scanline overlay for sci-fi effect */
+.cp-container::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: repeating-linear-gradient(
+		0deg,
+		transparent,
+		transparent 3px,
+		rgba(255, 255, 255, 0.008) 3px,
+		rgba(255, 255, 255, 0.008) 4px
+	);
+	pointer-events: none;
+	border-radius: 10px;
+	z-index: 0;
+}
+.cp-container > * {
+	position: relative;
+	z-index: 1;
+}
+
+/* Corner accents for sci-fi framing */
+.cp-container::after {
+	content: '';
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	right: 3px;
+	bottom: 3px;
+	border: 1px solid rgba(255, 50, 100, 0.06);
+	border-radius: 8px;
+	pointer-events: none;
+	z-index: 0;
+}

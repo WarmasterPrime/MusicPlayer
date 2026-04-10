@@ -27,6 +27,7 @@ import { ModalFonts } from "./ModalFonts.mjs";
 import { ModalAdmin } from "./ModalAdmin.mjs";
 import { FeatureGate } from "./FeatureGate.mjs";
 import { StoreCheckout } from "./services/StoreCheckout.mjs";
+import { ModalOptions } from "./ModalOptions.mjs";
 import { installCanvas, setup as setupBG, moveBG } from "./ext/Main.mjs";
 
 // Expose classes on window for backward compatibility
@@ -58,6 +59,7 @@ window.ModalStore = ModalStore;
 window.ModalFonts = ModalFonts;
 window.ModalAdmin = ModalAdmin;
 window.FeatureGate = FeatureGate;
+window.ModalOptions = ModalOptions;
 
 /**
  * Saved color state for fade toggle.
@@ -239,6 +241,23 @@ function ini() {
 	checkSong();
 	setColorsFromUrl(obj);
 
+	// Wire up options modal
+	ModalOptions.setBGStateCallback(setNewBGState);
+
+	// Settings gear button
+	let settingsBtn = document.getElementById("settings-btn");
+	if (settingsBtn) {
+		settingsBtn.addEventListener("click", function () {
+			ModalOptions.open();
+		});
+	}
+
+	// Handle polygonSides URL param
+	if (obj["polygonSides"] !== undefined) {
+		let sides = parseInt(obj["polygonSides"], 10);
+		if (sides >= 2 && sides <= 10000) Visual.polygonSides = sides;
+	}
+
 	document.getElementById("r").addEventListener("change", function () {
 		saveColorToParam();
 	});
@@ -412,7 +431,9 @@ function checkSong() {
 			if (shuffleOpt) {
 				shuffleOpt.checked = true;
 				document.getElementById("player").loop = false;
-				if (document.getElementById("player").paused)
+				// Only auto-select if no specific song was already loaded from URL
+				// to avoid the race condition where shuffle overwrites the song name
+				if (document.getElementById("player").paused && !obj["song"] && !obj["playlist"])
 					AudioLibrary.selectSong(true);
 			}
 		}
@@ -552,6 +573,11 @@ function setupAudioPlay() {
  */
 function setSongHash() {
 	if (document.getElementById("player")) {
+		// Don't store song param when a playlist is active — the playlist handles track state
+		if (Playlist.currentPlaylist !== null) {
+			UrlParams.removeParam("song");
+			return;
+		}
 		if (typeof AudioLibrary.currentSongId === "string" && AudioLibrary.currentSongId.length > 0) {
 			UrlParams.SetParam("song", AudioLibrary.currentSongId);
 		} else {
@@ -582,6 +608,12 @@ function setupOptionListeners() {
 		designElm.addEventListener("change", function () {
 			Visual.updateDesign(this);
 			UrlParams.SetParam("design", this.value);
+			// Sync ModalOptions dropdown if built
+			let optDesign = document.getElementById("opt-design");
+			if (optDesign) optDesign.value = this.value;
+			// Show/hide polygon sides row
+			let sidesRow = document.getElementById("opt-sides-row");
+			if (sidesRow) sidesRow.style.display = this.value === "polygon" ? "" : "none";
 		});
 	}
 
@@ -827,6 +859,26 @@ function setupOptionListeners() {
 		menuTrigger.addEventListener("mouseleave", hideMenu);
 		menuElm.addEventListener("mouseenter", showMenu);
 		menuElm.addEventListener("mouseleave", hideMenu);
+	}
+
+	// Left panel (auth + settings) - show on hover near left edge
+	let leftPanel = document.getElementById("left-panel");
+	let leftTrigger = document.getElementById("left-panel-trigger");
+	if (leftTrigger && leftPanel) {
+		let leftHideTimer = null;
+		let showLeft = function () {
+			if (leftHideTimer) { clearTimeout(leftHideTimer); leftHideTimer = null; }
+			leftPanel.classList.add("visible");
+		};
+		let hideLeft = function () {
+			leftHideTimer = setTimeout(function () {
+				leftPanel.classList.remove("visible");
+			}, 400);
+		};
+		leftTrigger.addEventListener("mouseenter", showLeft);
+		leftTrigger.addEventListener("mouseleave", hideLeft);
+		leftPanel.addEventListener("mouseenter", showLeft);
+		leftPanel.addEventListener("mouseleave", hideLeft);
 	}
 
 	// Auth buttons

@@ -237,9 +237,10 @@
 
 /* Auth buttons in nav */
 .auth-buttons {
-	display: inline-block;
-	vertical-align: top;
-	margin-left: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	align-items: center;
 }
 .auth-btn {
 	background-color: rgba(100, 100, 100, 0.85);

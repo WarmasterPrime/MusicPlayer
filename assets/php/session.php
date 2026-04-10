@@ -4,6 +4,23 @@
  */
 
 if (session_status() === PHP_SESSION_NONE) {
+	// Use an app-specific session save path to avoid permission conflicts
+	// between WAMP Apache and PHP CLI server.
+	$appSessionPath = realpath(__DIR__ . "/../..") . DIRECTORY_SEPARATOR . "sessions";
+	if (!is_dir($appSessionPath)) {
+		@mkdir($appSessionPath, 0777, true);
+	}
+	if (is_dir($appSessionPath) && is_writable($appSessionPath)) {
+		session_save_path($appSessionPath);
+	}
+
+	session_set_cookie_params([
+		"lifetime" => 86400 * 7, // 7 days
+		"path" => "/",
+		"httponly" => true,
+		"samesite" => "Lax"
+	]);
+
 	session_start();
 }
 

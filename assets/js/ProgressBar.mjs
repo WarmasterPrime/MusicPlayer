@@ -45,6 +45,8 @@ export class ProgressBar {
 			blue: 100,
 			alpha: 1
 		};
+		/** Bass intensity (0-1) for reactive glow effect. Updated by the Visualizer. */
+		this.bassIntensity = 0;
 	}
 
 	/**
@@ -56,22 +58,39 @@ export class ProgressBar {
 	}
 
 	/**
-	 * Renders the progress bar on the canvas.
+	 * Renders the progress bar on the canvas with bass-reactive glow.
 	 */
 	render(colorObj=undefined) {
 		if(colorObj===undefined) {
 			colorObj = Visual.color;
 		}
-		//this.context.fillStyle = `rgba(${this.color.red}, ${this.color.green}, ${this.color.blue}, ${this.color.alpha})`;
-		this.context.fillStyle = `rgba(${colorObj.red}, ${colorObj.green}, ${colorObj.blue}, ${colorObj.alpha||1})`;
-		this.context.fillRect(this.x, this.y, this.width, this.height);
-		//for(let i=90,o=0;i>0;i-=5,o++) {
-		//	//this.context.fillStyle = `rgba(${colorObj.red}, ${colorObj.green}, ${colorObj.blue}, ${colorObj.alpha||(i/100)})`;
-		//	//this.context.fillRect(this.x, this.y+this.height+o, this.width+o, 1);
-		//	//this.context.fillRect(this.x, this.y-(o), this.width+o, 1);
-		//	this.context.fillStyle = `rgba(${colorObj.red}, ${colorObj.green}, ${colorObj.blue}, ${colorObj.alpha||"0.1"})`;
-		//	this.context.fillRect(this.x, this.y+this.height+(o/9), this.width+(o/2), 1);
-		//}
+		let r = colorObj.red;
+		let g = colorObj.green;
+		let b = colorObj.blue;
+		let a = colorObj.alpha || 1;
+
+		// Bass-reactive glow: apply shadow when bass intensity is above threshold
+		let bass = this.bassIntensity;
+		if (bass > 0.05) {
+			let glowRadius = 4 + bass * 18;   // 4-22px glow radius based on bass
+			let glowAlpha = 0.3 + bass * 0.7;  // 0.3-1.0 opacity
+			this.context.save();
+			this.context.shadowColor = `rgba(${r}, ${g}, ${b}, ${glowAlpha})`;
+			this.context.shadowBlur = glowRadius;
+			this.context.shadowOffsetX = 0;
+			this.context.shadowOffsetY = 0;
+			// Draw the bar with glow
+			this.context.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+			this.context.fillRect(this.x, this.y, this.width, this.height);
+			// Second pass for stronger glow on heavy bass
+			if (bass > 0.4) {
+				this.context.fillRect(this.x, this.y, this.width, this.height);
+			}
+			this.context.restore();
+		} else {
+			this.context.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+			this.context.fillRect(this.x, this.y, this.width, this.height);
+		}
 	}
 	
 	checkColors(a, b) {

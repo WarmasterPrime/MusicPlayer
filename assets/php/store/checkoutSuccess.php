@@ -14,7 +14,10 @@ require_once __DIR__ . "/../System/Database.php";
 // Determine the base URL for redirect
 $baseUrl = (isset($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] === "on" ? "https" : "http")
 	. "://" . ($_SERVER["HTTP_HOST"] ?? "localhost");
-$basePath = dirname(dirname(dirname(dirname($_SERVER["SCRIPT_NAME"]))));
+// Navigate up from assets/php/store/ to the app root
+$scriptDir = str_replace("\\", "/", dirname($_SERVER["SCRIPT_NAME"]));
+$basePath = dirname(dirname(dirname($scriptDir)));
+if ($basePath === "/" || $basePath === "\\" || $basePath === ".") $basePath = "";
 $appUrl = rtrim($baseUrl . $basePath, "/");
 
 $mode = $_GET["mode"] ?? "";
@@ -48,6 +51,7 @@ try {
 		// Fetch subscription details from PayPal
 		$sub = PayPalSubscription::get($subscriptionId);
 		if (isset($sub["_error"])) {
+			error_log("PayPal subscription fetch failed: " . json_encode($sub));
 			header("Location: " . $appUrl . "/index.html?checkout=error");
 			exit;
 		}
@@ -112,6 +116,7 @@ try {
 		// Capture the order
 		$capture = PayPalCheckout::captureOrder($token);
 		if (isset($capture["error"])) {
+			error_log("PayPal order capture failed: " . json_encode($capture));
 			header("Location: " . $appUrl . "/index.html?checkout=error");
 			exit;
 		}
@@ -156,5 +161,6 @@ try {
 	}
 
 } catch (Exception $e) {
+	error_log("PayPal checkout error: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
 	header("Location: " . $appUrl . "/index.html?checkout=error");
 }

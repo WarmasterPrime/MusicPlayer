@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -l \"Server\" \"C:\\\\Users\\\\kekoa\\\\_CLAUDE_\\\\MusicPlayer\\\\.claude\\\\worktrees\\\\serene-euler\\\\assets\\\\js\"/*.js)",
+      "mcp__Desktop_Commander__list_directory",
+      "mcp__Desktop_Commander__read_multiple_files",
+      "mcp__Desktop_Commander__read_file",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(grep -r \"elm\\\\.src\\\\|element\\\\.src\\\\|\\\\.src.*=\" /a/wamp64/www/WebRoot/www/MusicPlayer/Versions/MusicPlayer/assets/js --include=*.js --include=*.mjs)",
+      "Bash(\"A:/wamp64/bin/mysql/mysql5.7.31/bin/mysql.exe\" -u root -e \"DESCRIBE media.song_files;\")"
+    ]
+  }
+}

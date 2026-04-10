@@ -26,7 +26,6 @@ class ProgressBar {
 		this.width = 0;
 		this.height = 5;
 		this.x = 0;
-		console.log(this.visualizer);
 		this.y = (this.visualizer.height / 2) - this.height;
 		this.color = {
 			red: 255,
@@ -34,6 +33,8 @@ class ProgressBar {
 			blue: 100,
 			alpha: 1
 		};
+		/** Bass intensity (0-1) for reactive glow effect. */
+		this.bassIntensity = 0;
 	}
 
 	update() {
@@ -42,8 +43,30 @@ class ProgressBar {
 	}
 
 	render() {
-		this.context.fillStyle = `rgba(${this.color.red}, ${this.color.green}, ${this.color.blue}, ${this.color.alpha})`;
-		this.context.fillRect(this.x, this.y, this.width, this.height);
+		let r = this.color.red;
+		let g = this.color.green;
+		let b = this.color.blue;
+		let a = this.color.alpha;
+		let bass = this.bassIntensity;
+
+		if (bass > 0.05) {
+			let glowRadius = 4 + bass * 18;
+			let glowAlpha = 0.3 + bass * 0.7;
+			this.context.save();
+			this.context.shadowColor = `rgba(${r}, ${g}, ${b}, ${glowAlpha})`;
+			this.context.shadowBlur = glowRadius;
+			this.context.shadowOffsetX = 0;
+			this.context.shadowOffsetY = 0;
+			this.context.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+			this.context.fillRect(this.x, this.y, this.width, this.height);
+			if (bass > 0.4) {
+				this.context.fillRect(this.x, this.y, this.width, this.height);
+			}
+			this.context.restore();
+		} else {
+			this.context.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+			this.context.fillRect(this.x, this.y, this.width, this.height);
+		}
 	}
 
 

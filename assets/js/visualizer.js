@@ -15,6 +15,7 @@ class Visual {
 	static audioAccuracy=512;
 	static xOffset=-1;
 	static progBarElm;
+	static polygonSides = 6;
 	/**
 	* The background color configuration object.
 	**/
@@ -406,6 +407,16 @@ class Visual {
 			if(!Visual.ghost)
 				viz.ctx.clearRect(0, 0, viz.width, viz.height);
 			Visual.progBarElm.update();
+			// Calculate bass intensity for reactive progress bar glow
+			let bassSum = 0;
+			let bassBins = Math.max(1, Math.min(8, Math.floor(viz.bufferLength * 0.03)));
+			for (let bi = 0; bi < bassBins; bi++) {
+				let bval = viz.dataArray[bi] + 150;
+				if (bval < 0) bval = 0;
+				bassSum += bval;
+			}
+			let bassAvg = bassSum / bassBins;
+			Visual.progBarElm.bassIntensity = Math.min(1.0, Math.max(0, bassAvg / 150));
 			Visual.progBarElm.render();
 			Visual.#calculateColors();
 			let tre=0;
@@ -425,6 +436,12 @@ class Visual {
 				case "curvedLines":
 					tre=Visual.#renderCurvedLines();
 					break;
+				case "circle":
+					tre=Visual.#renderCircle();
+					break;
+				case "polygon":
+					tre=Visual.#renderPolygon();
+					break;
 			}
 			let ard=tre/(150*viz.bufferLength);
 			//setTimeout(function(){Visual.#applyBarColor(ard);},0);
@@ -438,6 +455,16 @@ class Visual {
 				}
 				if(Visual.last_measurement!==viz.dataArray[0])
 					Visual.last_measurement=viz.dataArray[0];
+
+				// Bass-reactive sphere speed
+				let bassVal = viz.dataArray[0] + 150;
+				if (bassVal < 0) bassVal = 0;
+				let bassNorm = Math.min(1.0, bassVal / 150);
+				let objElm = document.getElementById("obj");
+				if (objElm && bassNorm > 0.3) {
+					let speed = Math.max(0.05, 0.25 - (bassNorm * 0.2));
+					objElm.style.transitionDuration = speed.toFixed(3) + "s";
+				}
 			}
 		}
 		//delete(x,i,y,r,g,b,a,calc,h,bh,bw);
@@ -496,19 +523,22 @@ class Visual {
 	 */
 	static #renderLines() {
 		let o = viz.bufferLength;
-		let i = 0, u = 0, xx = (viz.bar.width + 1) * (viz.bufferLength + Visual.xOffset), tre = 0, toff = 150, x = 0, ii = viz.bufferLength - viz.bar.width;
-		let tcl = 100;
+		let i = 0, u = 0, tre = 0, toff = 150;
+		let totalVisWidth = (viz.bar.width + 1) * (viz.bufferLength * 2);
+		let startX = (viz.width - totalVisWidth) / 2;
+		let x = startX;
+		let xx = startX + ((viz.bar.width + 1) * viz.bufferLength);
+		let ii = viz.bufferLength - viz.bar.width;
 		viz.ctx.lineWidth = 2;
 		let tmpData = [];
 		let region;
-		viz.ctx.strokeStyle = "red";
 		let colorCalc = Color.createFromRGB(0, 0, 0);
 		if (Visual.fillPolygon) {
 			region = new Path2D();
-			region.moveTo(0, viz.height);
+			region.moveTo(startX, viz.height);
 		} else {
 			viz.ctx.beginPath();
-			viz.ctx.moveTo(0, viz.height);
+			viz.ctx.moveTo(startX, viz.height);
 		}
 		for (o = viz.bufferLength; o > -1; o--) {
 			colorCalc = Color.createFromRGB(0, 0, 0);
@@ -727,6 +757,206 @@ class Visual {
 			xx += viz.bar.width;
 			ii++;
 		}
+
+		return tre;
+	}
+	/**
+	 * Renders the circular visualization design.
+	 * Frequency bars radiate outward from a central circle, evenly distributed
+	 * around the circumference. Bar count is determined by the Accuracy setting.
+	 * @returns {number} The total energy value.
+	 */
+	static #renderCircle() {
+		let tre = 0;
+		let toff = 150;
+		let centerX = viz.width / 2;
+		let centerY = viz.height * 0.6;
+		let minDim = Math.min(viz.width, viz.height);
+		let baseRadius = minDim * 0.15;
+		let maxBarLength = minDim * 0.35;
+		let count = viz.bufferLength;
+		let angleStep = (2 * Math.PI) / count;
+
+		// Calculate bar width based on circumference and bar count
+		let circumference = 2 * Math.PI * baseRadius;
+		let barWidth = Math.max(1, (circumference / count) * 0.8);
+		viz.ctx.lineWidth = barWidth;
+		viz.ctx.lineCap = "round";
+
+		let outerPoints = [];
+
+		for (let o = 0; o < count; o++) {
+			let y = ((viz.dataArray[o] + toff) / viz.bar.height) * viz.bar.maxHeight;
+			if (y < 0) y = 0;
+			let barLength = (y / viz.height) * maxBarLength;
+			let calc = (y / viz.height) * 256;
+
+			// Rotate so index 0 starts at top (-PI/2 offset)
+			let angle = (o * angleStep) - (Math.PI / 2);
+
+			let innerX = centerX + baseRadius * Math.cos(angle);
+			let innerY = centerY + baseRadius * Math.sin(angle);
+			let outerX = centerX + (baseRadius + barLength) * Math.cos(angle);
+			let outerY = centerY + (baseRadius + barLength) * Math.sin(angle);
+
+			outerPoints.push({ x: outerX, y: outerY });
+
+			viz.ctx.strokeStyle = "rgb(" + (viz.bar.color.r * calc) + "," + (viz.bar.color.g * calc) + "," + (viz.bar.color.b * calc) + ")";
+			viz.ctx.beginPath();
+			viz.ctx.moveTo(innerX, innerY);
+			viz.ctx.lineTo(outerX, outerY);
+			viz.ctx.stroke();
+
+			if (viz.dataArray[o])
+				tre += viz.dataArray[o] + toff;
+		}
+
+		// Fill polygon between base circle and bar tips
+		if (Visual.fillPolygon && outerPoints.length > 0) {
+			viz.ctx.beginPath();
+			// Draw outer tip path
+			viz.ctx.moveTo(outerPoints[0].x, outerPoints[0].y);
+			for (let p = 1; p < outerPoints.length; p++) {
+				viz.ctx.lineTo(outerPoints[p].x, outerPoints[p].y);
+			}
+			viz.ctx.closePath();
+			// Draw inner circle path (counter-clockwise to create hole)
+			viz.ctx.moveTo(centerX + baseRadius, centerY);
+			viz.ctx.arc(centerX, centerY, baseRadius, 0, 2 * Math.PI, true);
+			viz.ctx.fillStyle = "rgba(" + viz.bar.color.r + "," + viz.bar.color.g + "," + viz.bar.color.b + ",0.15)";
+			viz.ctx.fill("evenodd");
+		}
+
+		// Draw base circle outline
+		let baseCalc = 0.3;
+		viz.ctx.strokeStyle = "rgba(" + (viz.bar.color.r * baseCalc) + "," + (viz.bar.color.g * baseCalc) + "," + (viz.bar.color.b * baseCalc) + ",0.4)";
+		viz.ctx.lineWidth = 1.5;
+		viz.ctx.beginPath();
+		viz.ctx.arc(centerX, centerY, baseRadius, 0, 2 * Math.PI);
+		viz.ctx.stroke();
+
+		return tre;
+	}
+	/**
+	 * Renders the polygon visualization design.
+	 * Frequency bars radiate outward perpendicular to each side of a regular polygon.
+	 * The polygon has Visual.polygonSides sides (clamped between 2 and 10000).
+	 * @returns {number} The total energy value.
+	 */
+	static #renderPolygon() {
+		let tre = 0;
+		let toff = 150;
+		let centerX = viz.width / 2;
+		let centerY = viz.height * 0.6;
+		let minDim = Math.min(viz.width, viz.height);
+		let baseRadius = minDim * 0.15;
+		let maxBarLength = minDim * 0.35;
+		let count = viz.bufferLength;
+		let sides = Math.max(2, Math.min(10000, Visual.polygonSides));
+
+		// Calculate polygon vertices
+		let vertices = [];
+		for (let s = 0; s <= sides; s++) {
+			let angle = (s * 2 * Math.PI / sides) - (Math.PI / 2);
+			vertices.push({
+				x: centerX + baseRadius * Math.cos(angle),
+				y: centerY + baseRadius * Math.sin(angle)
+			});
+		}
+
+		// Calculate perimeter and bar width
+		let perimeter = 0;
+		for (let s = 0; s < sides; s++) {
+			let dx = vertices[s + 1].x - vertices[s].x;
+			let dy = vertices[s + 1].y - vertices[s].y;
+			perimeter += Math.sqrt(dx * dx + dy * dy);
+		}
+		let barWidth = Math.max(1, (perimeter / count) * 0.8);
+		viz.ctx.lineWidth = barWidth;
+		viz.ctx.lineCap = "round";
+
+		// Distribute bars evenly across all edges
+		let barsPerSide = count / sides;
+		let outerPoints = [];
+
+		for (let o = 0; o < count; o++) {
+			let y = ((viz.dataArray[o] + toff) / viz.bar.height) * viz.bar.maxHeight;
+			if (y < 0) y = 0;
+			let barLength = (y / viz.height) * maxBarLength;
+			let calc = (y / viz.height) * 256;
+
+			// Determine which edge this bar belongs to and position along it
+			let sideIndex = Math.floor(o / barsPerSide);
+			if (sideIndex >= sides) sideIndex = sides - 1;
+			let t = (o - sideIndex * barsPerSide) / barsPerSide;
+
+			let v0 = vertices[sideIndex];
+			let v1 = vertices[sideIndex + 1];
+
+			// Position along the edge
+			let posX = v0.x + (v1.x - v0.x) * t;
+			let posY = v0.y + (v1.y - v0.y) * t;
+
+			// Outward normal for this edge
+			let edgeDx = v1.x - v0.x;
+			let edgeDy = v1.y - v0.y;
+			let edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy);
+			let nx = -edgeDy / edgeLen;
+			let ny = edgeDx / edgeLen;
+
+			// Ensure normal points outward (away from center)
+			let toCenterX = centerX - posX;
+			let toCenterY = centerY - posY;
+			if (nx * toCenterX + ny * toCenterY > 0) {
+				nx = -nx;
+				ny = -ny;
+			}
+
+			let outerX = posX + nx * barLength;
+			let outerY = posY + ny * barLength;
+
+			outerPoints.push({ x: outerX, y: outerY });
+
+			viz.ctx.strokeStyle = "rgb(" + (viz.bar.color.r * calc) + "," + (viz.bar.color.g * calc) + "," + (viz.bar.color.b * calc) + ")";
+			viz.ctx.beginPath();
+			viz.ctx.moveTo(posX, posY);
+			viz.ctx.lineTo(outerX, outerY);
+			viz.ctx.stroke();
+
+			if (viz.dataArray[o])
+				tre += viz.dataArray[o] + toff;
+		}
+
+		// Fill polygon between base shape and bar tips
+		if (Visual.fillPolygon && outerPoints.length > 0) {
+			viz.ctx.beginPath();
+			// Draw outer tip path
+			viz.ctx.moveTo(outerPoints[0].x, outerPoints[0].y);
+			for (let p = 1; p < outerPoints.length; p++) {
+				viz.ctx.lineTo(outerPoints[p].x, outerPoints[p].y);
+			}
+			viz.ctx.closePath();
+			// Draw inner polygon path (counter-clockwise to create hole)
+			viz.ctx.moveTo(vertices[0].x, vertices[0].y);
+			for (let s = sides; s >= 0; s--) {
+				viz.ctx.lineTo(vertices[s].x, vertices[s].y);
+			}
+			viz.ctx.closePath();
+			viz.ctx.fillStyle = "rgba(" + viz.bar.color.r + "," + viz.bar.color.g + "," + viz.bar.color.b + ",0.15)";
+			viz.ctx.fill("evenodd");
+		}
+
+		// Draw base polygon outline
+		let baseCalc = 0.3;
+		viz.ctx.strokeStyle = "rgba(" + (viz.bar.color.r * baseCalc) + "," + (viz.bar.color.g * baseCalc) + "," + (viz.bar.color.b * baseCalc) + ",0.4)";
+		viz.ctx.lineWidth = 1.5;
+		viz.ctx.beginPath();
+		viz.ctx.moveTo(vertices[0].x, vertices[0].y);
+		for (let s = 1; s <= sides; s++) {
+			viz.ctx.lineTo(vertices[s].x, vertices[s].y);
+		}
+		viz.ctx.closePath();
+		viz.ctx.stroke();
 
 		return tre;
 	}

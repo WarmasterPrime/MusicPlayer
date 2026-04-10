@@ -6,9 +6,6 @@
 @import url("modal.css");
 @import url("toggles.css");
 @import url("theme.css");
-@import url("store.css");
-@import url("options-modal.css");
-@import url("color-picker.css");
 
 body, html {
 	position:fixed;
@@ -213,7 +210,7 @@ span.item label {
 
 .desc {
 	position: absolute;
-	top: 30%;
+	top: 10%;
 	left: 50%;
 	transform: translateX(-50%);
 	width: 100vw;
@@ -231,80 +228,12 @@ span.item label {
 	gap: 20px; /* Add spacing between elements */
 }
 
-.desc * {
-	position:absolute;
-	left:50%;
-	transform:translateX(-50%);
-}
-
 .song-name {
 	margin-bottom: 10px; /* Add space below song name */
 }
 
 .subtitle {
-	top:75px;
-}
-
-/* Left slide-in panel (auth + settings) */
-.left-panel-trigger {
-	position: fixed;
-	top: 0;
-	left: 0;
-	width: 30px;
-	height: 100%;
-	z-index: 199;
-}
-.left-panel {
-	position: fixed;
-	top: 50%;
-	left: 0;
-	transform: translateY(-50%) translateX(-100%);
-	z-index: 200;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 10px;
-	padding: 14px 10px;
-	background: linear-gradient(to bottom, rgba(50, 50, 100, 0.75), rgba(200, 50, 50, 0.75));
-	backdrop-filter: blur(10px);
-	-webkit-backdrop-filter: blur(10px);
-	border-radius: 0 10px 10px 0;
-	border: 1px solid rgba(255, 50, 100, 0.2);
-	border-left: none;
-	box-shadow: 0 0 20px rgba(255, 50, 100, 0.1);
-	opacity: 0;
-	transition: opacity 0.25s, transform 0.25s;
-	pointer-events: none;
-}
-.left-panel.visible {
-	opacity: 1;
-	transform: translateY(-50%) translateX(0);
-	pointer-events: auto;
-}
-
-/* Settings gear inside the panel */
-.settings-btn {
-	width: 36px;
-	height: 36px;
-	border-radius: 50%;
-	border: 1px solid rgba(255, 255, 255, 0.15);
-	background: rgba(0, 0, 0, 0.3);
-	color: rgba(255, 255, 255, 0.8);
-	font-size: 18px;
-	cursor: pointer;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	transition: all 0.2s ease;
-	padding: 0;
-	line-height: 1;
-}
-.settings-btn:hover {
-	color: #FFF;
-	background: rgba(255, 50, 100, 0.3);
-	border-color: rgba(255, 50, 100, 0.5);
-	box-shadow: 0 0 12px rgba(255, 50, 100, 0.25);
-	transform: rotate(45deg);
+	margin-top: 15px; /* Add space above lyrics */
 }
 
 

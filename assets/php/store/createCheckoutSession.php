@@ -100,7 +100,10 @@ try {
 	// Build return/cancel URLs
 	$baseUrl = (isset($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] === "on" ? "https" : "http")
 		. "://" . ($_SERVER["HTTP_HOST"] ?? "localhost");
-	$basePath = dirname(dirname(dirname($_SERVER["SCRIPT_NAME"])));
+	// Navigate up from assets/php/store/ to assets/
+	$scriptDir = str_replace("\\", "/", dirname($_SERVER["SCRIPT_NAME"]));
+	$basePath = dirname(dirname($scriptDir));
+	if ($basePath === "/" || $basePath === "\\" || $basePath === ".") $basePath = "";
 	$appUrl = rtrim($baseUrl . $basePath, "/");
 
 	if ($mode === "subscription" && !empty($price["paypal_plan_id"])) {

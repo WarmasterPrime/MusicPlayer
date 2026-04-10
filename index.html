@@ -18,6 +18,11 @@
 	</head>
 	<body>
 	<div id="tooltip" class="tooltip"></div>
+	<div class="left-panel-trigger" id="left-panel-trigger"></div>
+	<div class="left-panel" id="left-panel">
+		<div id="auth-buttons" class="auth-buttons"></div>
+		<button id="settings-btn" class="settings-btn" title="Settings">&#9881;</button>
+	</div>
 	<div class="middle" hidden></div>
 	<div id="bg" class="main-container"></div>
 	<div id="new-bg" class="bg">
@@ -33,73 +38,35 @@
 			<div class="menu-trigger" id="menu-trigger"></div>
 			<div class="menu" id="menu-tab">Songs</div>
 			<div id="media" class="media">
-				<div class="mnav">
-					<audio id="player" src="" controls loop></audio>
-					<div id="auth-buttons" class="auth-buttons"></div>
-					<div class="options" id="options">
-						<span class="item">
-							<label>Design:</label>
-							<select id="design" value="radial">
-								<option value="bar">Bar</option>
-								<option value="line">Line</option>
-								<option value="verticalLines">Vertical Lines</option>
-								<option value="curvedLines">Curve</option>
-							</select>
-						</span>
-						<span class="item">
-							<label class="toggle-switch"><input id="fillPolygonOption" type="checkbox" checked><span class="slider"></span></label>
-							<span class="toggle-label">Fill</span>
-						</span>
-						<span id="bg-hide" hidden>
-							<label>BG: </label><input id="bg-hide-opt" type="checkbox">
-						</span>
-						<span class="item">
-							<label class="toggle-switch"><input id="sn" type="checkbox" checked><span class="slider"></span></label>
-							<span class="toggle-label">SN</span>
-						</span>
-						<span class="item">
-							<label class="toggle-switch"><input id="bar-toggle" type="checkbox" checked><span class="slider"></span></label>
-							<span class="toggle-label">Bar</span>
-						</span>
-						<span class="item">
-							<label class="toggle-switch"><input id="shuffle-opt" type="checkbox"><span class="slider"></span></label>
-							<span class="toggle-label">&#10545;</span>
-						</span>
-						<span class="item">
-							<label class="toggle-switch"><input id="ghost" type="checkbox"><span class="slider"></span></label>
-							<span class="toggle-label">Ghost</span>
-						</span>
-						<span class="item">
-							<label class="toggle-switch"><input id="fade" type="checkbox"><span class="slider"></span></label>
-							<span class="toggle-label">Fades</span>
-						</span>
-						<span class="item">
-							<label class="toggle-switch"><input id="new-bg-opt" type="checkbox" checked><span class="slider"></span></label>
-							<span class="toggle-label">New BG</span>
-						</span>
-						<span class="item">
-							<label class="toggle-switch"><input id="sphere" type="checkbox" checked><span class="slider"></span></label>
-							<span class="toggle-label">Sphere</span>
-						</span>
-						<span class="item">
-							<label class="toggle-switch"><input id="lyrics" type="checkbox" checked><span class="slider"></span></label>
-							<span class="toggle-label">Lyrics</span>
-						</span>
-						<span class="item">
-							<label class="toggle-switch"><input id="cbg" type="checkbox" checked><span class="slider"></span></label>
-							<span class="toggle-label">Hex Colors</span>
-						</span>
-						<span class="item"><label>Hex Color:</label><input id="hex-color" type="color" value="#0F0006"></span>
-						<span class="item"><label>Accuracy:</label><input id="audioAccuracy" value="512" /></span>
-						<span class="item" type="file"><label>Upload:</label><input id="file-upload" type="file" /></span>
-						<span class="item">
-							<label class="toggle-switch"><input id="theme-toggle" type="checkbox"><span class="slider"></span></label>
-							<span class="toggle-label">Light</span>
-						</span>
-					</div>
-					<label style="user-select:none;">Red: </label><input id="r" type="range" value="250" min="0" max="255" step="1">
-					<label style="user-select:none;">Green: </label><input id="g" type="range" value="50" min="0" max="255" step="1">
-					<label style="user-select:none;">Blue: </label><input id="b" type="range" value="25" min="0" max="255" step="1">
+				<!-- Hidden elements that code depends on -->
+				<audio id="player" src="" loop hidden></audio>
+				<div hidden>
+					<select id="design" value="radial">
+						<option value="bar">Bar</option>
+						<option value="line">Line</option>
+						<option value="verticalLines">Vertical Lines</option>
+						<option value="curvedLines">Curve</option>
+						<option value="circle">Circle</option>
+						<option value="polygon">Polygon</option>
+					</select>
+					<input id="fillPolygonOption" type="checkbox" checked>
+					<input id="bg-hide-opt" type="checkbox">
+					<input id="sn" type="checkbox" checked>
+					<input id="bar-toggle" type="checkbox" checked>
+					<input id="shuffle-opt" type="checkbox">
+					<input id="ghost" type="checkbox">
+					<input id="fade" type="checkbox">
+					<input id="new-bg-opt" type="checkbox" checked>
+					<input id="sphere" type="checkbox" checked>
+					<input id="lyrics" type="checkbox" checked>
+					<input id="cbg" type="checkbox" checked>
+					<input id="hex-color" type="color" value="#0F0006">
+					<input id="audioAccuracy" value="512">
+					<input id="file-upload" type="file">
+					<input id="theme-toggle" type="checkbox">
+					<input id="r" type="range" value="250" min="0" max="255" step="1">
+					<input id="g" type="range" value="50" min="0" max="255" step="1">
+					<input id="b" type="range" value="25" min="0" max="255" step="1">
 				</div>
 			</div>
 		</div>

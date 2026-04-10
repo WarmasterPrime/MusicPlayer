@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "musicplayer",
+      "runtimeExecutable": "A:/wamp64/bin/php/php8.3.0/php.exe",
+      "runtimeArgs": ["-S", "localhost:8765", "-t", "A:/wamp64/www/WebRoot/www/Musicplayer"],
+      "port": 8765
+    }
+  ]
+}
