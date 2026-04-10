@@ -4,6 +4,7 @@ import { Toast } from "./Toast.mjs";
 import { Server } from "./lib/Server.mjs";
 import { AudioLibrary } from "./AudioLibrary.mjs";
 import { GoogleAuth } from "./services/GoogleAuth.mjs";
+import { ModalLegal } from "./ModalLegal.mjs";
 
 /**
  * Manages authentication forms (login/register) within the modal.
@@ -86,6 +87,7 @@ export class ModalAuth {
 		html += "</div>";
 		html += "</details>";
 		html += "<button class='modal-form-btn' id='register-btn'>Register</button>";
+		html += "<div class='modal-form-legal-text'>By registering, you agree to our <a id='open-privacy'>Privacy Policy</a> and <a id='open-terms'>Terms of Use</a>.</div>";
 		html += "<div class='modal-form-message' id='register-message'></div>";
 		html += "<div class='modal-form-link'>Already have an account? <a id='register-to-login'>Login</a></div>";
 		return html;
@@ -135,6 +137,18 @@ export class ModalAuth {
 		let toLogin = document.getElementById("register-to-login");
 		if (toLogin)
 			toLogin.addEventListener("click", function () { ModalAuth.openLogin(); });
+
+		let openPrivacy = document.getElementById("open-privacy");
+		if (openPrivacy)
+			openPrivacy.addEventListener("click", function () {
+				ModalLegal.openPrivacy(function () { ModalAuth.openRegister(); });
+			});
+
+		let openTerms = document.getElementById("open-terms");
+		if (openTerms)
+			openTerms.addEventListener("click", function () {
+				ModalLegal.openTerms(function () { ModalAuth.openRegister(); });
+			});
 	}
 
 	/**

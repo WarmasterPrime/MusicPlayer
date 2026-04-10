@@ -28,6 +28,7 @@ import { ModalAdmin } from "./ModalAdmin.mjs";
 import { FeatureGate } from "./FeatureGate.mjs";
 import { StoreCheckout } from "./services/StoreCheckout.mjs";
 import { ModalOptions } from "./ModalOptions.mjs";
+import { ModalLegal } from "./ModalLegal.mjs";
 import { installCanvas, setup as setupBG, moveBG } from "./ext/Main.mjs";
 
 // Expose classes on window for backward compatibility
@@ -60,6 +61,7 @@ window.ModalFonts = ModalFonts;
 window.ModalAdmin = ModalAdmin;
 window.FeatureGate = FeatureGate;
 window.ModalOptions = ModalOptions;
+window.ModalLegal = ModalLegal;
 
 /**
  * Saved color state for fade toggle.
@@ -240,6 +242,15 @@ function ini() {
 	initial();
 	checkSong();
 	setColorsFromUrl(obj);
+
+	// Handle legal view URL params
+	if (obj["view"] === "privacy") {
+		ModalLegal.openPrivacy();
+		UrlParams.removeParam("view");
+	} else if (obj["view"] === "terms") {
+		ModalLegal.openTerms();
+		UrlParams.removeParam("view");
+	}
 
 	// Wire up options modal
 	ModalOptions.setBGStateCallback(setNewBGState);

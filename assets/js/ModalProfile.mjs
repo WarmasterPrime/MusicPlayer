@@ -69,6 +69,12 @@ export class ModalProfile {
 		html += "<button class='modal-form-btn' id='profile-save'>Save Profile</button>";
 		html += "<div class='modal-form-message' id='profile-message'></div>";
 
+		html += "<hr style='border-color:rgba(255,50,100,0.2);margin:16px 0;' />";
+		html += "<div class='modal-form-title' style='font-size:16px;'>Data Privacy</div>";
+		html += "<div class='modal-form-group' style='text-align:center;'>";
+		html += "<button class='modal-form-btn' id='profile-export-data' style='background:rgba(255,50,100,0.15); border-color:rgba(255,50,100,0.3);'>Download My Data</button>";
+		html += "</div>";
+
 		// Linked Accounts section
 		html += "<div class='linked-accounts'>";
 		html += "<div class='linked-accounts-title'>Linked Accounts</div>";
@@ -146,6 +152,13 @@ export class ModalProfile {
 			});
 		}
 
+		let exportBtn = document.getElementById("profile-export-data");
+		if (exportBtn) {
+			exportBtn.addEventListener("click", function () {
+				ModalProfile.promptDataExport();
+			});
+		}
+
 		// Save song display format on change
 		let displayFormatSelect = document.getElementById("profile-song-display-format");
 		if (displayFormatSelect) {
@@ -166,6 +179,41 @@ export class ModalProfile {
 		// Fetch profile data from server and populate fields
 		ModalProfile.fetchProfile();
 		ModalProfile.loadLinkedAccounts();
+	}
+
+	/**
+	 * Prompts the user to choose an export format and initiates the download.
+	 */
+	static promptDataExport() {
+		let html = "";
+		html += "<div class='modal-form-title'>Download My Data</div>";
+		html += "<p style='text-align:center;font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;'>";
+		html += "Select the format you would like to receive your data in:";
+		html += "</p>";
+		html += "<div class='modal-form-group'>";
+		html += "<button class='modal-form-btn export-format-btn' data-format='txt' style='margin-bottom:8px;'>Text File (.txt)</button>";
+		html += "<button class='modal-form-btn export-format-btn' data-format='csv' style='margin-bottom:8px;'>Spreadsheet (.csv)</button>";
+		html += "<button class='modal-form-btn export-format-btn' data-format='json' style='margin-bottom:8px;'>JSON (.json)</button>";
+		html += "</div>";
+		html += "<button class='modal-form-btn' id='export-cancel' style='background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);margin-top:10px;'>Cancel</button>";
+
+		Modal.openRaw(html);
+
+		let btns = document.querySelectorAll(".export-format-btn");
+		for (let i = 0; i < btns.length; i++) {
+			btns[i].addEventListener("click", function () {
+				let format = this.getAttribute("data-format");
+				window.location.href = "assets/php/exportData.php?format=" + format;
+				Modal.open("profile"); // Return to profile tab
+			});
+		}
+
+		let cancel = document.getElementById("export-cancel");
+		if (cancel) {
+			cancel.addEventListener("click", function () {
+				Modal.open("profile");
+			});
+		}
 	}
 
 	/**
