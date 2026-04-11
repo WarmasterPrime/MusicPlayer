@@ -17,10 +17,10 @@ try {
 	$pdo = Database::connect("media");
 
 	if (is_string($exclude) && strlen($exclude) > 0) {
-		$stmt = $pdo->prepare("SELECT `id`, `name` AS `title`, `artist` FROM `songs` WHERE `id` != ? ORDER BY RAND() LIMIT 1");
+		$stmt = $pdo->prepare("SELECT `id`, `name` AS `title`, `artist`, `source_url` FROM `songs` WHERE `id` != ? ORDER BY RAND() LIMIT 1");
 		$stmt->execute([$exclude]);
 	} else {
-		$stmt = $pdo->query("SELECT `id`, `name` AS `title`, `artist` FROM `songs` ORDER BY RAND() LIMIT 1");
+		$stmt = $pdo->query("SELECT `id`, `name` AS `title`, `artist`, `source_url` FROM `songs` ORDER BY RAND() LIMIT 1");
 	}
 
 	$song = $stmt->fetch();
@@ -30,6 +30,7 @@ try {
 			"song_id" => $song["id"],
 			"title" => $song["title"],
 			"artist" => $song["artist"] ?? "",
+			"source_url" => $song["source_url"] ?? "",
 			"stream_url" => "assets/php/streamSong.php?id=" . urlencode($song["id"])
 		]);
 	} else {

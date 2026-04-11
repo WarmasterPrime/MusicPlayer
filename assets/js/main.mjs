@@ -29,6 +29,7 @@ import { FeatureGate } from "./FeatureGate.mjs";
 import { StoreCheckout } from "./services/StoreCheckout.mjs";
 import { ModalOptions } from "./ModalOptions.mjs";
 import { ModalLegal } from "./ModalLegal.mjs";
+import { ModalLayoutDesigner } from "./ModalLayoutDesigner.mjs";
 import { installCanvas, setup as setupBG, moveBG } from "./ext/Main.mjs";
 
 // Expose classes on window for backward compatibility
@@ -62,6 +63,7 @@ window.ModalAdmin = ModalAdmin;
 window.FeatureGate = FeatureGate;
 window.ModalOptions = ModalOptions;
 window.ModalLegal = ModalLegal;
+window.ModalLayoutDesigner = ModalLayoutDesigner;
 
 /**
  * Saved color state for fade toggle.
@@ -252,6 +254,9 @@ function ini() {
 		UrlParams.removeParam("view");
 	}
 
+	// Apply active layout on load
+	ModalLayoutDesigner.applyActiveLayout();
+
 	// Wire up options modal
 	ModalOptions.setBGStateCallback(setNewBGState);
 
@@ -411,6 +416,7 @@ function checkSong() {
 							let songArtist = data.song.artist || "";
 							let songTitle = data.song.title || "";
 							AudioLibrary.currentSongName = songArtist.length > 0 ? songArtist + " - " + songTitle : songTitle;
+							AudioLibrary.currentSourceUrl = data.song.source_url || "";
 							let streamUrl = data.song.stream_url || "";
 							if (streamUrl.length > 0)
 								player.play(streamUrl);

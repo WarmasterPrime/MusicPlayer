@@ -24,7 +24,7 @@ try {
 	$pdo = Database::connect("media");
 	$stmt = $pdo->prepare("
 		SELECT `id`, `name` AS `title`, `artist`, `album`, `genre`,
-		       `duration_ms`, `publisher`
+		       `duration_ms`, `publisher`, `source_url`
 		FROM `songs`
 		WHERE `id` = ?
 		LIMIT 1
@@ -42,6 +42,7 @@ try {
 				"album" => $song["album"] ?? "",
 				"genre" => $song["genre"] ?? "",
 				"duration" => $song["duration_ms"] ?? 0,
+				"source_url" => $song["source_url"] ?? "",
 				"path" => "assets/php/streamSong.php?id=" . urlencode($song["id"]),
 				"stream_url" => "assets/php/streamSong.php?id=" . urlencode($song["id"])
 			]

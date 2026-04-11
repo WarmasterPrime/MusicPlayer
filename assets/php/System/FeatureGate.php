@@ -24,6 +24,7 @@ class FeatureGate {
 		"lyrics_display"          => ["free_limit" => 0,         "paid" => true],
 		"lyrics_editing"          => ["free_limit" => 0,         "paid" => true],
 		"song_name_customization" => ["free_limit" => 0,         "paid" => true],
+		"layout_designer"         => ["free_limit" => 0,         "paid" => true],
 	];
 
 	/**
@@ -132,8 +133,7 @@ class FeatureGate {
 			$pdo = Database::connect("accounts");
 			$stmt = $pdo->prepare("
 				SELECT COUNT(*) FROM `feature_flags`
-				WHERE `user_id` = ? AND `feature_key` = ? AND `granted` = 1
-				AND (`expires_at` IS NULL OR `expires_at` > NOW())
+				WHERE `user_id` = ? AND `feature_key` = ?
 			");
 			$stmt->execute([$userId, $featureKey]);
 			return (int)$stmt->fetchColumn() > 0;

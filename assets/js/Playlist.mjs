@@ -122,6 +122,7 @@ export class Playlist {
 		let artist = song.artist || "";
 		let title = song.title || "";
 		AudioLibrary.currentSongName = artist.length > 0 ? artist + " - " + title : title;
+		AudioLibrary.currentSourceUrl = song.source_url || "";
 		// Disable loop so the ended event fires for playlist advancement
 		let player = document.getElementById("player");
 		if (player) player.loop = false;

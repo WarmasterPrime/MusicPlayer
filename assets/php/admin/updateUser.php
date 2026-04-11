@@ -60,26 +60,16 @@ try {
 		$desired = $input["features"];
 
 		// Get current granted features for this user
-		$stmt = $pdo->prepare("SELECT `feature_key` FROM `feature_flags` WHERE `user_id` = ? AND `granted` = 1");
+		$stmt = $pdo->prepare("SELECT `feature_key` FROM `feature_flags` WHERE `user_id` = ?");
 		$stmt->execute([$userId]);
 		$current = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
 		// Grant new features (checked but not currently granted)
 		$toGrant = array_diff($desired, $current);
 		foreach ($toGrant as $featureKey) {
-			// Check if a revoked row already exists
-			$stmt = $pdo->prepare("SELECT `id` FROM `feature_flags` WHERE `user_id` = ? AND `feature_key` = ?");
-			$stmt->execute([$userId, $featureKey]);
-			$existing = $stmt->fetch();
-
-			if ($existing) {
-				$stmt = $pdo->prepare("UPDATE `feature_flags` SET `granted` = 1, `granted_by` = ?, `expires_at` = NULL WHERE `id` = ?");
-				$stmt->execute([$admin["id"], $existing["id"]]);
-			} else {
-				$id = Database::generateId(255);
-				$stmt = $pdo->prepare("INSERT INTO `feature_flags` (`id`, `user_id`, `feature_key`, `granted`, `granted_by`, `expires_at`) VALUES (?, ?, ?, 1, ?, NULL)");
-				$stmt->execute([$id, $userId, $featureKey, $admin["id"]]);
-			}
+			$id = Database::generateId(255);
+			$stmt = $pdo->prepare("INSERT INTO `feature_flags` (`id`, `user_id`, `feature_key`, `granted`, `granted_by`) VALUES (?, ?, ?, 1, ?)");
+			$stmt->execute([$id, $userId, $featureKey, $admin["id"]]);
 		}
 
 		// Revoke removed features (currently granted but unchecked)

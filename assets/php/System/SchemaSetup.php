@@ -82,7 +82,81 @@ class SchemaSetup {
 		$results[] = $this->createPlaylistPermissions();
 		$results[] = $this->migrateMusicplayerLyrics();
 		$results[] = $this->migrateAccountsUsers();
+		$results[] = $this->createUserLayouts();
+		$results[] = $this->createFeatureFlags();
 		return $results;
+	}
+
+	/**
+	 * CREATE accounts.feature_flags if it does not exist.
+	 */
+	private function createFeatureFlags(): array {
+		$result = ["table" => "accounts.feature_flags", "actions" => []];
+		$pdo = $this->connect("accounts");
+
+		if (!$this->tableExists($pdo, "feature_flags")) {
+			$pdo->exec("
+				CREATE TABLE `feature_flags` (
+					`id` CHAR(255) NOT NULL,
+					`user_id` CHAR(36) NOT NULL,
+					`feature_key` VARCHAR(100) NOT NULL,
+					`granted` TINYINT(1) NOT NULL DEFAULT 1,
+					`granted_by` CHAR(36) DEFAULT NULL,
+					`expires_at` TIMESTAMP NULL DEFAULT NULL,
+					`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					PRIMARY KEY (`id`),
+					UNIQUE KEY `uq_user_feature` (`user_id`, `feature_key`),
+					KEY `idx_ff_user` (`user_id`)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+			");
+			$result["actions"][] = "Created feature_flags table";
+		} else {
+			$result["actions"][] = "Table already exists";
+		}
+
+		return $result;
+	}
+
+	/**
+	 * CREATE accounts.user_layouts if it does not exist.
+	 */
+	private function createUserLayouts(): array {
+		$result = ["table" => "accounts.user_layouts", "actions" => []];
+		$pdo = $this->connect("accounts");
+
+		if (!$this->tableExists($pdo, "user_layouts")) {
+			$pdo->exec("
+				CREATE TABLE `user_layouts` (
+					`id` CHAR(36) NOT NULL,
+					`user_id` CHAR(36) NOT NULL,
+					`name` VARCHAR(100) NOT NULL,
+					`layout_data` LONGTEXT NOT NULL,
+					`is_active` TINYINT(1) NOT NULL DEFAULT 0,
+					`created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					`updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+					PRIMARY KEY (`id`),
+					KEY `idx_ul_user_id` (`user_id`),
+					CONSTRAINT `fk_ul_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+			");
+			$result["actions"][] = "Created user_layouts table";
+
+			// Auto-UUID trigger
+			$pdo->exec("
+				CREATE TRIGGER `bi_user_layouts` BEFORE INSERT ON `user_layouts`
+				FOR EACH ROW
+				BEGIN
+					IF NEW.id IS NULL OR NEW.id = '' THEN
+						SET NEW.id = UUID();
+					END IF;
+				END
+			");
+			$result["actions"][] = "Created bi_user_layouts trigger";
+		} else {
+			$result["actions"][] = "Table already exists";
+		}
+
+		return $result;
 	}
 
 	/**

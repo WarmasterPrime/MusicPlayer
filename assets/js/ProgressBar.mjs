@@ -39,12 +39,6 @@ export class ProgressBar {
 		this.height = 5;
 		this.x = 0;
 		this.y = (this.visualizer.height / 2) - this.height;
-		this.color = {
-			red: 255,
-			green: 0,
-			blue: 100,
-			alpha: 1
-		};
 		/** Bass intensity (0-1) for reactive glow effect. Updated by the Visualizer. */
 		this.bassIntensity = 0;
 	}
@@ -59,30 +53,27 @@ export class ProgressBar {
 
 	/**
 	 * Renders the progress bar on the canvas with bass-reactive glow.
+	 * Uses the visualizer's current bar color (which reflects fade) by default.
 	 */
-	render(colorObj=undefined) {
-		if(colorObj===undefined) {
-			colorObj = Visual.color;
-		}
-		let r = colorObj.red;
-		let g = colorObj.green;
-		let b = colorObj.blue;
-		let a = colorObj.alpha || 1;
+	render() {
+		let barColor = this.visualizer.bar ? this.visualizer.bar.color : null;
+		let r = barColor ? barColor.r : Visual.color.red;
+		let g = barColor ? barColor.g : Visual.color.green;
+		let b = barColor ? barColor.b : Visual.color.blue;
+		let a = barColor ? (barColor.a || 1) : 1;
 
 		// Bass-reactive glow: apply shadow when bass intensity is above threshold
 		let bass = this.bassIntensity;
 		if (bass > 0.05) {
-			let glowRadius = 4 + bass * 18;   // 4-22px glow radius based on bass
-			let glowAlpha = 0.3 + bass * 0.7;  // 0.3-1.0 opacity
+			let glowRadius = 4 + bass * 18;
+			let glowAlpha = 0.3 + bass * 0.7;
 			this.context.save();
 			this.context.shadowColor = `rgba(${r}, ${g}, ${b}, ${glowAlpha})`;
 			this.context.shadowBlur = glowRadius;
 			this.context.shadowOffsetX = 0;
 			this.context.shadowOffsetY = 0;
-			// Draw the bar with glow
 			this.context.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
 			this.context.fillRect(this.x, this.y, this.width, this.height);
-			// Second pass for stronger glow on heavy bass
 			if (bass > 0.4) {
 				this.context.fillRect(this.x, this.y, this.width, this.height);
 			}
@@ -91,10 +82,6 @@ export class ProgressBar {
 			this.context.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
 			this.context.fillRect(this.x, this.y, this.width, this.height);
 		}
-	}
-	
-	checkColors(a, b) {
-		return (a.red !== b.red || a.green !== b.green || a.blue !== b.blue) || a.red+a.green+a.blue < b.red+b.green+b.blue;
 	}
 	
 }

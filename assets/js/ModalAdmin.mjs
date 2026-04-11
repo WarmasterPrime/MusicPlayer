@@ -44,6 +44,7 @@ export class ModalAdmin {
 		{ key: "cloud_storage", group: "Storage" },
 		{ key: "custom_fonts", group: "Appearance" },
 		{ key: "custom_backgrounds", group: "Appearance" },
+		{ key: "layout_designer", group: "Appearance" },
 		{ key: "creator_badge", group: "Misc" }
 	];
 

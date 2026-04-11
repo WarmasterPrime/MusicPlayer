@@ -13,6 +13,7 @@ export class AudioLibrary {
 	static sntmp = false;
 	static currentSongId = "";
 	static currentSongName = "";
+	static currentSourceUrl = "";
 	static temp;
 
 	/**
@@ -83,6 +84,7 @@ export class AudioLibrary {
 						let artist = data.artist || "";
 						let title = data.title || "";
 						AudioLibrary.currentSongName = artist.length > 0 ? artist + " - " + title : title;
+						AudioLibrary.currentSourceUrl = data.source_url || "";
 						AudioLibrary.play(data.stream_url);
 					}
 				});

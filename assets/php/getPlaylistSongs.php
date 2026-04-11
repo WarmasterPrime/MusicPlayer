@@ -27,7 +27,7 @@ try {
 
 	// Fetch songs in order
 	$songStmt = $pdo->prepare("
-		SELECT ps.`song_id`, ps.`position`, s.`name` AS `title`, s.`artist`, s.`album`, s.`genre`, s.`duration_ms`
+		SELECT ps.`song_id`, ps.`position`, s.`name` AS `title`, s.`artist`, s.`album`, s.`genre`, s.`duration_ms`, s.`source_url`
 		FROM `playlist_songs` ps
 		INNER JOIN `songs` s ON s.`id` = ps.`song_id`
 		WHERE ps.`playlist_id` = ?
@@ -45,6 +45,7 @@ try {
 			"album" => $row["album"] ?? "",
 			"genre" => $row["genre"] ?? "",
 			"duration" => $row["duration_ms"] ?? 0,
+			"source_url" => $row["source_url"] ?? "",
 			"position" => (int)$row["position"],
 			"stream_url" => "assets/php/streamSong.php?id=" . urlencode($row["song_id"])
 		];

@@ -101,6 +101,11 @@ export class Visual {
 	static captionElm = null;
 
 	/**
+	 * Active layout configuration.
+	 */
+	static activeLayout = null;
+
+	/**
 	 * A reference to the Player instance. Set by main.mjs.
 	 * @type {object|null}
 	 */
@@ -113,7 +118,7 @@ export class Visual {
 		viz.elm = document.getElementById("visualizer");
 		viz.ctx = viz.elm.getContext("2d");
 		viz.elm.width = window.innerWidth;
-		viz.elm.height = window.innerHeight - 65;
+		viz.elm.height = window.innerHeight;
 		viz.width = viz.elm.width;
 		viz.height = viz.elm.height;
 		viz.actx = new AudioContext();
@@ -270,24 +275,16 @@ export class Visual {
 			Visual.updateColorBars(Visual.color);
 		}
 		
-		//viz.color.red = Visual.color.red;
-		//viz.color.green = Visual.color.green;
-		//viz.color.blue = Visual.color.blue;
-		//if(Visual.progBarElm) {
-		//	Visual.progBarElm.color.red = Visual.color.red;
-		//	Visual.progBarElm.color.green = Visual.color.green;
-		//	Visual.progBarElm.color.blue = Visual.color.blue;
-		//}
 	}
 
 	/**
-	 * Updates the progress bar colors to match the current visualizer colors.
+	 * Updates the bar colors to match the current visualizer colors.
 	 */
 	static updateColorBars() {
-		if (Visual.progBarElm && Visual.progBarElm.color) {
-			Visual.progBarElm.color.red = Visual.color.red;
-			Visual.progBarElm.color.green = Visual.color.green;
-			Visual.progBarElm.color.blue = Visual.color.blue;
+		if (viz.bar && viz.bar.color) {
+			viz.bar.color.r = Visual.color.red;
+			viz.bar.color.g = Visual.color.green;
+			viz.bar.color.b = Visual.color.blue;
 		}
 	}
 
@@ -298,11 +295,6 @@ export class Visual {
 		Visual.color.red = 250;
 		Visual.color.green = 50;
 		Visual.color.blue = 25;
-		if (Visual.progBarElm) {
-			Visual.progBarElm.color.red = 255;
-			Visual.progBarElm.color.green = 0;
-			Visual.progBarElm.color.blue = 100;
-		}
 	}
 
 	/**
@@ -318,7 +310,7 @@ export class Visual {
 	static updateRenderDisplay() {
 		if (viz.elm) {
 			viz.elm.height = window.innerHeight;
-			viz.elm.width = window.innerWidth - 1;
+			viz.elm.width = window.innerWidth;
 			viz.width = viz.elm.width;
 			viz.height = viz.elm.height;
 			viz.bar.maxHeight = Visual.getMaxHeight();
@@ -379,66 +371,239 @@ export class Visual {
 			viz.ana.getFloatFrequencyData(viz.dataArray);
 			if (!Visual.ghost)
 				viz.ctx.clearRect(0, 0, viz.width, viz.height);
-			if (Visual.progressBarVisible && Visual.progBarElm) {
-				Visual.progBarElm.update();
-				// Calculate bass intensity from the first few frequency bins (low freqs)
-				let bassSum = 0;
-				let bassBins = Math.max(1, Math.min(8, Math.floor(viz.bufferLength * 0.03)));
-				for (let bi = 0; bi < bassBins; bi++) {
-					let val = viz.dataArray[bi] + 150; // normalize from dB (typically -100 to 0)
-					if (val < 0) val = 0;
-					bassSum += val;
-				}
-				let bassAvg = bassSum / bassBins;
-				Visual.progBarElm.bassIntensity = Math.min(1.0, Math.max(0, bassAvg / 150));
-				Visual.progBarElm.render(Visual.color);
-			}
-			Visual.#calculateColors();
-			let tre = 0;
-			switch (Visual.currentDesign) {
-				case "bar":
-					tre = Visual.#renderBars();
-					break;
-				case "line":
-					tre = Visual.#renderLines();
-					break;
-				case "verticalLines":
-					tre = Visual.#renderVerticalLines();
-					break;
-				case "radial":
-					tre = Visual.#renderRadial();
-					break;
-				case "curvedLines":
-					tre = Visual.#renderCurvedLines();
-					break;
-				case "circle":
-					tre = Visual.#renderCircle();
-					break;
-				case "polygon":
-					tre = Visual.#renderPolygon();
-					break;
-			}
-			if (newBGState) {
-				if (tre > 0) {
-					let mdiff = (Visual.last_measurement / viz.dataArray[0]);
-					if (mdiff < 1 && mdiff > 0.85)
-						Sys.newLocation();
-				}
-				if (Visual.last_measurement !== viz.dataArray[0])
-					Visual.last_measurement = viz.dataArray[0];
 
-				// Bass-reactive sphere speed: heavy bass = faster transition
-				let bassVal = viz.dataArray[0] + 150;
-				if (bassVal < 0) bassVal = 0;
-				let bassNorm = Math.min(1.0, bassVal / 150);
-				let objElm = document.getElementById("obj");
-				if (objElm && bassNorm > 0.3) {
-					// Map bass intensity to transition speed: heavier bass = snappier movement
-					let speed = Math.max(0.05, 0.25 - (bassNorm * 0.2));
-					objElm.style.transitionDuration = speed.toFixed(3) + "s";
+			// Render Custom Layout Components
+			if (Visual.activeLayout) {
+				Visual.#renderCustomLayout();
+			} else {
+				Visual.#calculateColors();
+				// Render progress bar after color calculation so fade colors apply
+				if (Visual.progressBarVisible && Visual.progBarElm) {
+					Visual.progBarElm.update();
+					// Calculate bass intensity from the first few frequency bins (low freqs)
+					let bassSum = 0;
+					let bassBins = Math.max(1, Math.min(8, Math.floor(viz.bufferLength * 0.03)));
+					for (let bi = 0; bi < bassBins; bi++) {
+						let val = viz.dataArray[bi] + 150; // normalize from dB (typically -100 to 0)
+						if (val < 0) val = 0;
+						bassSum += val;
+					}
+					let bassAvg = bassSum / bassBins;
+					Visual.progBarElm.bassIntensity = Math.min(1.0, Math.max(0, bassAvg / 150));
+					Visual.progBarElm.render();
+				}
+				let tre = 0;
+				switch (Visual.currentDesign) {
+					case "bar":
+						tre = Visual.#renderBars();
+						break;
+					case "line":
+						tre = Visual.#renderLines();
+						break;
+					case "verticalLines":
+						tre = Visual.#renderVerticalLines();
+						break;
+					case "radial":
+						tre = Visual.#renderRadial();
+						break;
+					case "curvedLines":
+						tre = Visual.#renderCurvedLines();
+						break;
+					case "circle":
+						tre = Visual.#renderCircle();
+						break;
+					case "polygon":
+						tre = Visual.#renderPolygon();
+						break;
+				}
+				if (newBGState) {
+					if (tre > 0) {
+						let mdiff = (Visual.last_measurement / viz.dataArray[0]);
+						if (mdiff < 1 && mdiff > 0.85)
+							Sys.newLocation();
+					}
+					if (Visual.last_measurement !== viz.dataArray[0])
+						Visual.last_measurement = viz.dataArray[0];
+
+					// Bass-reactive sphere speed: heavy bass = faster transition
+					let bassVal = viz.dataArray[0] + 150;
+					if (bassVal < 0) bassVal = 0;
+					let bassNorm = Math.min(1.0, bassVal / 150);
+					let objElm = document.getElementById("obj");
+					if (objElm && bassNorm > 0.3) {
+						// Map bass intensity to transition speed: heavier bass = snappier movement
+						let speed = Math.max(0.05, 0.25 - (bassNorm * 0.2));
+						objElm.style.transitionDuration = speed.toFixed(3) + "s";
+					}
 				}
 			}
 		}
+	}
+
+	static #renderCustomLayout() {
+		// Update colors for this frame
+		Visual.#calculateColors();
+
+		// Calculate energy for background changes
+		let tre = 0;
+		for (let u = 0; u < viz.bufferLength; u++) {
+			tre += viz.dataArray[u] + 150;
+		}
+
+		let occupied = [];
+		Visual.activeLayout.forEach(comp => {
+			let x = (comp.x / 100) * viz.width;
+			let y = (comp.y / 100) * viz.height;
+
+			switch(comp.type) {
+				case "visualizer":
+					Visual.#renderDesignAt(x, y, comp.props);
+					break;
+				case "song-display":
+					Visual.#renderTextFlowAt(Visual.player ? Visual.player.formatDisplay() : "", x, y, comp.props, occupied);
+					break;
+				case "song-name":
+					Visual.#renderTextFlowAt(Visual.player?.songName || "", x, y, comp.props, occupied);
+					break;
+				case "artist-name":
+					Visual.#renderTextFlowAt(Visual.player?.songArtist || "", x, y, comp.props, occupied);
+					break;
+				case "album-name":
+					Visual.#renderTextFlowAt(window.AudioLibrary?.currentAlbum || "Unknown Album", x, y, comp.props, occupied);
+					break;
+				case "progress-bar":
+					Visual.#renderProgressBarAt(x, y, comp.props);
+					break;
+				case "source-url":
+					Visual.#renderTextFlowAt(window.AudioLibrary?.currentSourceUrl || "", x, y, comp.props, occupied);
+					break;
+				case "publisher":
+					Visual.#renderTextFlowAt(window.AudioLibrary?.currentPublisher || "Unknown Publisher", x, y, comp.props, occupied);
+					break;
+				case "composers":
+					Visual.#renderTextFlowAt(window.AudioLibrary?.currentComposers || "Unknown Composer", x, y, comp.props, occupied);
+					break;
+				case "custom-text":
+					Visual.#renderTextFlowAt(comp.props.text || "", x, y, comp.props, occupied);
+					break;
+			}
+		});
+
+		return tre;
+	}
+
+	static #renderDesignAt(x, y, props) {
+		let widthPct = parseFloat(props.width);
+		if (Number.isNaN(widthPct) || widthPct <= 0) widthPct = 100;
+		let heightPct = parseFloat(props.height);
+		if (Number.isNaN(heightPct) || heightPct <= 0) heightPct = 35;
+		let width = (widthPct / 100) * viz.width;
+		let height = (heightPct / 100) * viz.height;
+		// Treat x,y as center position for the region
+		x = x - (width / 2);
+		y = y - (height / 2);
+		if (width > viz.width) width = viz.width;
+		if (height > viz.height) height = viz.height;
+		if (x + width > viz.width) x = Math.max(0, viz.width - width);
+		if (y + height > viz.height) y = Math.max(0, viz.height - height);
+		if (x < 0) x = 0;
+		if (y < 0) y = 0;
+
+		viz.ctx.save();
+		viz.ctx.translate(x, y);
+		viz.ctx.beginPath();
+		viz.ctx.rect(0, 0, width, height);
+		viz.ctx.clip();
+
+		let sx = width / viz.width;
+		let sy = height / viz.height;
+		viz.ctx.scale(sx, sy);
+
+		switch (Visual.currentDesign) {
+			case "bar":
+				Visual.#renderBars();
+				break;
+			case "line":
+				Visual.#renderLines();
+				break;
+			case "verticalLines":
+				Visual.#renderVerticalLines();
+				break;
+			case "radial":
+				Visual.#renderRadial();
+				break;
+			case "curvedLines":
+				Visual.#renderCurvedLines();
+				break;
+			case "circle":
+				Visual.#renderCircle();
+				break;
+			case "polygon":
+				Visual.#renderPolygon();
+				break;
+		}
+
+		viz.ctx.restore();
+	}
+
+	static #renderProgressBarAt(x, y, props) {
+		if (Visual.progBarElm) {
+			let widthPct = parseFloat(props.width) || 100;
+			let oldX = Visual.progBarElm.x;
+			let oldY = Visual.progBarElm.y;
+			let oldW = Visual.progBarElm.width;
+
+			Visual.progBarElm.x = x;
+			Visual.progBarElm.y = y;
+			Visual.progBarElm.width = (widthPct / 100) * viz.width;
+			if (Visual.progBarElm.width > viz.width) Visual.progBarElm.width = viz.width;
+			if (Visual.progBarElm.x + Visual.progBarElm.width > viz.width) Visual.progBarElm.x = Math.max(0, viz.width - Visual.progBarElm.width);
+			if (Visual.progBarElm.y > viz.height) Visual.progBarElm.y = viz.height;
+			if (Visual.progBarElm.x < 0) Visual.progBarElm.x = 0;
+			if (Visual.progBarElm.y < 0) Visual.progBarElm.y = 0;
+
+			Visual.progBarElm.update();
+			Visual.progBarElm.render();
+
+			Visual.progBarElm.x = oldX;
+			Visual.progBarElm.y = oldY;
+			Visual.progBarElm.width = oldW;
+		}
+	}
+
+	static #renderTextAt(text, x, y, props) {
+		viz.ctx.fillStyle = props.color || "#fff";
+		viz.ctx.font = (props.fontSize || "16px") + " Arial";
+		viz.ctx.textAlign = "center";
+		viz.ctx.textBaseline = "middle";
+		viz.ctx.fillText(text, x, y);
+	}
+
+	static #renderTextFlowAt(text, x, y, props, occupiedRects) {
+		viz.ctx.save();
+		viz.ctx.font = (props.fontSize || "16px") + " Arial";
+		let metrics = viz.ctx.measureText(text);
+		let width = metrics.width;
+		let fontPx = parseFloat(String(props.fontSize || "16px"));
+		if (Number.isNaN(fontPx)) fontPx = 16;
+		let height = fontPx * 1.2;
+		let cx = x, cy = y;
+		let maxIter = 20;
+		while (maxIter-- > 0) {
+			let rect = { left: cx - width / 2, right: cx + width / 2, top: cy - height / 2, bottom: cy + height / 2 };
+			let overlap = occupiedRects.some(r => !(rect.right < r.left || rect.left > r.right || rect.bottom < r.top || rect.top > r.bottom));
+			if (!overlap && rect.left >= 0 && rect.right <= viz.width && rect.top >= 0 && rect.bottom <= viz.height) {
+				occupiedRects.push(rect);
+				break;
+			}
+			// Move down by text height until free; if off bottom, try shifting up
+			cy += height;
+			if (cy + height / 2 > viz.height) {
+				cy = y - height;
+			}
+		}
+		viz.ctx.restore();
+		Visual.#renderTextAt(text, cx, cy, props);
 	}
 
 	/**
@@ -565,60 +730,78 @@ export class Visual {
 	 */
 	static #renderCurvedLines() {
 		let o = viz.bufferLength;
-		let i = 0, u = 0, tre = 0, toff = 150, counter = 0;
+		let i = 0, u = 0, tre = 0, toff = 150;
 		let totalWidth = (viz.bar.width + 1) * (viz.bufferLength * 2);
 		let startX = (viz.width - totalWidth) / 2;
 		let ii = viz.bufferLength - viz.bar.width;
 		let x = startX;
 		let xx = startX + ((viz.bar.width + 1) * viz.bufferLength);
-		viz.ctx.beginPath();
-		viz.ctx.moveTo(startX, viz.height);
 		viz.ctx.lineWidth = 2;
-		let tmpData = [];
-		let lastData = {};
-		let color = Color.createFromRGB(0, 0, 0);
+		let colorCalc = Color.createFromRGB(0, 0, 0);
+
+		// Build left-side points (high frequencies to low)
+		let leftPoints = [];
 		for (o = viz.bufferLength; o >= 0; o--) {
 			let y = ((viz.dataArray[o] + toff) / viz.bar.height) * viz.bar.maxHeight;
 			let calc = Math.min(1.0, (y / viz.height) * 1.6 + 0.15);
-			color.red = viz.bar.color.r * calc;
-			color.green = viz.bar.color.g * calc;
-			color.blue = viz.bar.color.b * calc;
-			viz.ctx.strokeStyle = color.toString();
-			let tmpX = x + (i * Visual.xOffset);
-			let tmpY = viz.height - y;
-			if (counter > 0 && counter % 2 === 0) {
-				viz.ctx.quadraticCurveTo(lastData.x, lastData.y, tmpX, tmpY);
-				viz.ctx.moveTo(tmpX, tmpY);
-			}
-			lastData = { x: tmpX, y: tmpY };
+			colorCalc.red = viz.bar.color.r * calc;
+			colorCalc.green = viz.bar.color.g * calc;
+			colorCalc.blue = viz.bar.color.b * calc;
+			leftPoints.push({ x: x + (i * Visual.xOffset), y: viz.height - y });
 			x += viz.bar.width + 1;
 			i++;
+			// Right-side mirror point
 			y = ((viz.dataArray[u] + toff) / viz.bar.height) * viz.bar.maxHeight;
-			calc = Math.min(1.0, (y / viz.height) * 1.6 + 0.15);
-			color = Color.createFromRGB(viz.bar.color.r * calc, viz.bar.color.g * calc, viz.bar.color.b * calc);
-			viz.ctx.strokeStyle = color.toString();
-			tmpData.push({
-				x: xx + (ii * Visual.xOffset),
-				y: viz.height - y,
-				color: color
-			});
 			if (viz.dataArray[u]) tre += viz.dataArray[u] + toff;
 			u++;
 			xx += viz.bar.width + 1;
 			ii++;
-			counter++;
 		}
-		for (let itu = 0; itu < tmpData.length; itu++) {
-			if (itu > 0 && itu % 2 === 0) {
-				viz.ctx.strokeStyle = tmpData[itu].color.toString();
-				viz.ctx.quadraticCurveTo(lastData.x, lastData.y, tmpData[itu].x, tmpData[itu].y);
-				viz.ctx.moveTo(tmpData[itu].x, tmpData[itu].y);
+
+		// Build right-side points (low to high)
+		let rightPoints = [];
+		u = 0; xx = startX + ((viz.bar.width + 1) * viz.bufferLength); ii = viz.bufferLength - viz.bar.width;
+		for (o = viz.bufferLength; o >= 0; o--) {
+			let y = ((viz.dataArray[u] + toff) / viz.bar.height) * viz.bar.maxHeight;
+			rightPoints.push({ x: xx + (ii * Visual.xOffset), y: viz.height - y });
+			u++;
+			xx += viz.bar.width + 1;
+			ii++;
+		}
+
+		// Draw curved path through all points
+		let allPoints = leftPoints.concat(rightPoints);
+
+		if (Visual.fillPolygon) {
+			let region = new Path2D();
+			region.moveTo(allPoints[0].x, viz.height);
+			region.lineTo(allPoints[0].x, allPoints[0].y);
+			for (let p = 1; p < allPoints.length; p++) {
+				let prev = allPoints[p - 1];
+				let cur = allPoints[p];
+				let cpx = (prev.x + cur.x) / 2;
+				let cpy = (prev.y + cur.y) / 2;
+				region.quadraticCurveTo(prev.x, prev.y, cpx, cpy);
 			}
-			lastData = { x: tmpData[itu].x, y: tmpData[itu].y };
+			let last = allPoints[allPoints.length - 1];
+			region.lineTo(last.x, last.y);
+			region.lineTo(last.x, viz.height);
+			region.closePath();
+			viz.ctx.fillStyle = colorCalc.toString();
+			viz.ctx.fill(region);
+		} else {
+			viz.ctx.beginPath();
+			viz.ctx.moveTo(allPoints[0].x, allPoints[0].y);
+			for (let p = 1; p < allPoints.length; p++) {
+				let prev = allPoints[p - 1];
+				let cur = allPoints[p];
+				let cpx = (prev.x + cur.x) / 2;
+				let cpy = (prev.y + cur.y) / 2;
+				viz.ctx.quadraticCurveTo(prev.x, prev.y, cpx, cpy);
+			}
+			viz.ctx.strokeStyle = colorCalc.toString();
+			viz.ctx.stroke();
 		}
-		viz.ctx.quadraticCurveTo(lastData.x, lastData.y, window.innerWidth, window.innerHeight);
-		viz.ctx.quadraticCurveTo(window.innerWidth, window.innerHeight, window.innerWidth * 1.1, window.innerHeight * 1.1);
-		viz.ctx.stroke();
 		return tre;
 	}
 
@@ -930,11 +1113,6 @@ export class Visual {
 				viz.bar.color.r = Visual.color.saved.r;
 				viz.bar.color.g = Visual.color.saved.g;
 				viz.bar.color.b = Visual.color.saved.b;
-				if (Visual.progBarElm) {
-					Visual.progBarElm.color.red = 255;
-					Visual.progBarElm.color.green = 0;
-					Visual.progBarElm.color.blue = 100;
-				}
 			}
 		}
 	}

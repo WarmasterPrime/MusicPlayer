@@ -1,6 +1,7 @@
 import { Visual } from "./Visualizer.mjs";
 import { UrlParams } from "./UrlParams.mjs";
 import { ColorPicker } from "./ColorPicker.mjs";
+import { ModalLayoutDesigner } from "./ModalLayoutDesigner.mjs";
 
 /**
  * Options modal for the MusicPlayer visualizer.
@@ -280,7 +281,8 @@ export class ModalOptions {
 			{ id: "visual", label: "Visual" },
 			{ id: "audio", label: "Audio" },
 			{ id: "display", label: "Display" },
-			{ id: "effects", label: "Effects" }
+			{ id: "effects", label: "Effects" },
+			{ id: "layout", label: "Layout" }
 		];
 
 		let tabBar = document.createElement("div");
@@ -305,7 +307,8 @@ export class ModalOptions {
 			visual: ModalOptions.#buildVisualPanel(),
 			audio: ModalOptions.#buildAudioPanel(),
 			display: ModalOptions.#buildDisplayPanel(),
-			effects: ModalOptions.#buildEffectsPanel()
+			effects: ModalOptions.#buildEffectsPanel(),
+			layout: ModalOptions.#buildLayoutPanel()
 		};
 
 		for (let key in panels) {
@@ -349,10 +352,26 @@ export class ModalOptions {
 		// Update panels
 		let panels = ModalOptions.#overlay.querySelectorAll(".opt-panel");
 		for (let i = 0; i < panels.length; i++) {
-			if (panels[i].getAttribute("data-panel") === tabId)
+			let panelId = panels[i].getAttribute("data-panel");
+			if (panelId === tabId) {
 				panels[i].classList.add("active");
-			else
+				// Trigger onMount-like logic for special tabs
+				if (tabId === "layout") {
+					ModalLayoutDesigner.render().then(html => {
+						panels[i].innerHTML = html;
+						ModalLayoutDesigner.onMount();
+					});
+				}
+			} else {
 				panels[i].classList.remove("active");
+			}
+		}
+
+		// Toggle wider modal for layout tab
+		if (tabId === "layout") {
+			ModalOptions.#overlay.querySelector(".opt-modal").style.maxWidth = "1000px";
+		} else {
+			ModalOptions.#overlay.querySelector(".opt-modal").style.maxWidth = "540px";
 		}
 
 		// Start/stop player tick when switching to/from audio tab
@@ -737,6 +756,12 @@ export class ModalOptions {
 		section.appendChild(bgHideRow);
 
 		panel.appendChild(section);
+		return panel;
+	}
+
+	static #buildLayoutPanel() {
+		let panel = document.createElement("div");
+		panel.innerHTML = "<div style='text-align:center;padding:20px;color:rgba(255,255,255,0.4);'>Loading Layout Designer...</div>";
 		return panel;
 	}
 

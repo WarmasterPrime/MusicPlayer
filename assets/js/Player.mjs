@@ -71,6 +71,11 @@ export class Player {
 	set source(value) {
 		if (typeof value === "string") {
 			this.element.src = value;
+			try {
+				if (typeof AudioLibrary !== "undefined") {
+					AudioLibrary.song = value;
+				}
+			} catch {}
 			// Use stored metadata from AudioLibrary if available (stream URLs can't be parsed)
 			if (typeof AudioLibrary !== "undefined" && AudioLibrary.currentSongName && AudioLibrary.currentSongName.length > 0) {
 				let parts = AudioLibrary.currentSongName.split(" - ");
