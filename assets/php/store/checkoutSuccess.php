@@ -89,7 +89,7 @@ try {
 
 		$txId = Database::generateId(255);
 		$stmt = $pdo->prepare("
-			INSERT INTO `transactions` (`id`, `user_id`, `paypal_capture_id`, `amount_cents`, `tax_amount`, `currency`, `description`, `status`)
+			INSERT INTO `transactions` (`id`, `user_id`, `paypal_order_id`, `amount_cents`, `tax_amount`, `currency`, `description`, `status`)
 			VALUES (?, ?, ?, ?, ?, ?, ?, 'completed')
 		");
 		$stmt->execute([$txId, $user["id"], $subscriptionId, $totalCents, $taxCents, strtolower($currency), "Subscription activated"]);

@@ -30,6 +30,7 @@ import { StoreCheckout } from "./services/StoreCheckout.mjs";
 import { ModalOptions } from "./ModalOptions.mjs";
 import { ModalLegal } from "./ModalLegal.mjs";
 import { ModalLayoutDesigner } from "./ModalLayoutDesigner.mjs";
+import { AdService } from "./AdService.mjs";
 import { installCanvas, setup as setupBG, moveBG } from "./ext/Main.mjs";
 
 // Expose classes on window for backward compatibility
@@ -294,13 +295,15 @@ function ini() {
 			FeatureGate.load().then(function () {
 				Session.subscriptionTier = FeatureGate.tier;
 				Session.features = FeatureGate.features;
+				AdService.init();
 			});
 			// Load and apply custom font preferences
 			ModalFonts.loadFontOptions();
 			// Load custom background image (or go transparent for OBS)
 			loadUserBackground();
 		} else {
-			// Not logged in — OBS gets transparent
+			// Not logged in — show ads, OBS gets transparent
+			AdService.init();
 			let isOBS = window.navigator.userAgent.indexOf("OBS/") !== -1;
 			if (isOBS) {
 				document.getElementById("bg-hide-opt").checked = true;

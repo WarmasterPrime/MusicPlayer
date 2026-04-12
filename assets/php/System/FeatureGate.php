@@ -25,6 +25,7 @@ class FeatureGate {
 		"lyrics_editing"          => ["free_limit" => 0,         "paid" => true],
 		"song_name_customization" => ["free_limit" => 0,         "paid" => true],
 		"layout_designer"         => ["free_limit" => 0,         "paid" => true],
+		"no_ads"                  => ["free_limit" => 0,         "paid" => true],
 	];
 
 	/**

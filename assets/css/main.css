@@ -523,7 +523,13 @@ span.item label {
     border-radius: 8px;
 }
 
-
-
-
+/* Ad Container */
+.ad-container {
+	position: fixed;
+	bottom: 10px;
+	right: 10px;
+	z-index: 50;
+	max-width: 320px;
+	pointer-events: auto;
+}
 
