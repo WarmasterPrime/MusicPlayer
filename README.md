@@ -16,7 +16,7 @@
 - Arrow Down: Decrease volume.
 - Arrow Left: Skip back 5 seconds.
 - Arrow Right: Skip forward 5 seconds.
-- Move mouse to the top edge: Shows song controls and visualization settings.
+- Move mouse to the left edge: Settings option displays.
 - Move mouse to the right edge: Shows the song navigation menu.
 </details>
 
