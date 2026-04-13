@@ -1,4 +1,5 @@
 import { Visual } from "./Visualizer.mjs";
+import { Visualizer3D } from "./Visualizer3D.mjs";
 import { UrlParams } from "./UrlParams.mjs";
 import { ColorPicker } from "./ColorPicker.mjs";
 import { ModalLayoutDesigner } from "./ModalLayoutDesigner.mjs";
@@ -399,7 +400,15 @@ export class ModalOptions {
 			{ value: "verticalLines", label: "Vertical Lines" },
 			{ value: "curvedLines", label: "Curved Lines" },
 			{ value: "circle", label: "Circle" },
-			{ value: "polygon", label: "Polygon" }
+			{ value: "polygon", label: "Polygon" },
+			{ value: "snow", label: "Snow" },
+			{ value: "rain", label: "Rain" },
+			{ value: "lightning", label: "Lightning" },
+			{ value: "tetris", label: "Tetris" },
+			{ value: "water", label: "Water Speaker" },
+			{ value: "3dbars", label: "3D Bars" },
+			{ value: "3dwaves", label: "3D Waves" },
+			{ value: "3dsphere", label: "3D Sphere" }
 		], Visual.currentDesign);
 		ModalOptions.#els.design = designSelect;
 		designRow.appendChild(designSelect);
@@ -420,12 +429,93 @@ export class ModalOptions {
 		sidesRow.appendChild(sidesInput);
 		designSection.appendChild(sidesRow);
 
+		// Water speaker options (conditionally visible)
+		let waterRow = ModalOptions.#createRow("Viscosity");
+		waterRow.id = "opt-water-row";
+		waterRow.style.display = Visual.currentDesign === "water" ? "" : "none";
+		let viscSlider = document.createElement("input");
+		viscSlider.type = "range";
+		viscSlider.className = "opt-input";
+		viscSlider.min = "0.80";
+		viscSlider.max = "0.99";
+		viscSlider.step = "0.01";
+		viscSlider.value = String(Visual.waterViscosity);
+		waterRow.appendChild(viscSlider);
+		designSection.appendChild(waterRow);
+
+		let tensionRow = ModalOptions.#createRow("Tension");
+		tensionRow.id = "opt-tension-row";
+		tensionRow.style.display = Visual.currentDesign === "water" ? "" : "none";
+		let tensionSlider = document.createElement("input");
+		tensionSlider.type = "range";
+		tensionSlider.className = "opt-input";
+		tensionSlider.min = "0.005";
+		tensionSlider.max = "0.1";
+		tensionSlider.step = "0.005";
+		tensionSlider.value = String(Visual.waterTension);
+		tensionRow.appendChild(tensionSlider);
+		designSection.appendChild(tensionRow);
+
+		let spreadRow = ModalOptions.#createRow("Spread");
+		spreadRow.id = "opt-spread-row";
+		spreadRow.style.display = Visual.currentDesign === "water" ? "" : "none";
+		let spreadSlider = document.createElement("input");
+		spreadSlider.type = "range";
+		spreadSlider.className = "opt-input";
+		spreadSlider.min = "0.05";
+		spreadSlider.max = "0.5";
+		spreadSlider.step = "0.01";
+		spreadSlider.value = String(Visual.waterSpread);
+		spreadSlider.appendChild;
+		spreadRow.appendChild(spreadSlider);
+		designSection.appendChild(spreadRow);
+
+		viscSlider.addEventListener("input", function () { Visual.waterViscosity = parseFloat(viscSlider.value); });
+		tensionSlider.addEventListener("input", function () { Visual.waterTension = parseFloat(tensionSlider.value); });
+		spreadSlider.addEventListener("input", function () { Visual.waterSpread = parseFloat(spreadSlider.value); });
+
+		// 3D design options (conditionally visible)
+		let is3D = Visualizer3D.is3D(Visual.currentDesign);
+
+		let autoRotRow = ModalOptions.#createRow("Auto-Rotate");
+		autoRotRow.id = "opt-3d-autorot-row";
+		autoRotRow.style.display = is3D ? "" : "none";
+		let autoRotToggle = ModalOptions.#createToggle("opt-3d-autorot", Visualizer3D.autoRotate, function (checked) {
+			Visualizer3D.autoRotate = checked;
+		});
+		ModalOptions.#els.autoRotate = autoRotToggle.querySelector("input");
+		autoRotRow.appendChild(autoRotToggle);
+		designSection.appendChild(autoRotRow);
+
+		let orbitRow = ModalOptions.#createRow("Mouse Orbit");
+		orbitRow.id = "opt-3d-orbit-row";
+		orbitRow.style.display = is3D ? "" : "none";
+		let orbitToggle = ModalOptions.#createToggle("opt-3d-orbit", Visualizer3D.orbitEnabled, function (checked) {
+			Visualizer3D.orbitEnabled = checked;
+		});
+		ModalOptions.#els.orbitEnabled = orbitToggle.querySelector("input");
+		orbitRow.appendChild(orbitToggle);
+		designSection.appendChild(orbitRow);
+
 		// Design change handler
 		designSelect.addEventListener("change", function () {
 			Visual.currentDesign = designSelect.value;
 			UrlParams.SetParam("design", designSelect.value);
 			let row = document.getElementById("opt-sides-row");
 			if (row) row.style.display = designSelect.value === "polygon" ? "" : "none";
+			let wr = document.getElementById("opt-water-row");
+			let tr = document.getElementById("opt-tension-row");
+			let sr = document.getElementById("opt-spread-row");
+			let showWater = designSelect.value === "water";
+			if (wr) wr.style.display = showWater ? "" : "none";
+			if (tr) tr.style.display = showWater ? "" : "none";
+			if (sr) sr.style.display = showWater ? "" : "none";
+			// 3D options
+			let show3D = Visualizer3D.is3D(designSelect.value);
+			let ar = document.getElementById("opt-3d-autorot-row");
+			let or = document.getElementById("opt-3d-orbit-row");
+			if (ar) ar.style.display = show3D ? "" : "none";
+			if (or) or.style.display = show3D ? "" : "none";
 			// Sync inline dropdown
 			let inlineDesign = document.getElementById("design");
 			if (inlineDesign) inlineDesign.value = designSelect.value;
@@ -946,6 +1036,24 @@ export class ModalOptions {
 		if (els.polygonSides) els.polygonSides.value = String(Visual.polygonSides);
 		let sidesRow = document.getElementById("opt-sides-row");
 		if (sidesRow) sidesRow.style.display = Visual.currentDesign === "polygon" ? "" : "none";
+
+		// Water options visibility
+		let showWater = Visual.currentDesign === "water";
+		let wRow = document.getElementById("opt-water-row");
+		let tRow = document.getElementById("opt-tension-row");
+		let sRow = document.getElementById("opt-spread-row");
+		if (wRow) wRow.style.display = showWater ? "" : "none";
+		if (tRow) tRow.style.display = showWater ? "" : "none";
+		if (sRow) sRow.style.display = showWater ? "" : "none";
+
+		// 3D options visibility and sync
+		let show3D = Visualizer3D.is3D(Visual.currentDesign);
+		let arRow = document.getElementById("opt-3d-autorot-row");
+		let orRow = document.getElementById("opt-3d-orbit-row");
+		if (arRow) arRow.style.display = show3D ? "" : "none";
+		if (orRow) orRow.style.display = show3D ? "" : "none";
+		if (els.autoRotate) els.autoRotate.checked = Visualizer3D.autoRotate;
+		if (els.orbitEnabled) els.orbitEnabled.checked = Visualizer3D.orbitEnabled;
 
 		if (els.colorSwatch)
 			els.colorSwatch.style.backgroundColor = "rgb(" + Visual.color.red + "," + Visual.color.green + "," + Visual.color.blue + ")";

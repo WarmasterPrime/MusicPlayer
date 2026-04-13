@@ -31,6 +31,8 @@ import { ModalOptions } from "./ModalOptions.mjs";
 import { ModalLegal } from "./ModalLegal.mjs";
 import { ModalLayoutDesigner } from "./ModalLayoutDesigner.mjs";
 import { AdService } from "./AdService.mjs";
+import { ModalChat } from "./ModalChat.mjs";
+import { ChatService } from "./services/ChatService.mjs";
 import { installCanvas, setup as setupBG, moveBG } from "./ext/Main.mjs";
 
 // Expose classes on window for backward compatibility
@@ -65,6 +67,8 @@ window.FeatureGate = FeatureGate;
 window.ModalOptions = ModalOptions;
 window.ModalLegal = ModalLegal;
 window.ModalLayoutDesigner = ModalLayoutDesigner;
+window.ModalChat = ModalChat;
+window.ChatService = ChatService;
 
 /**
  * Saved color state for fade toggle.
@@ -182,6 +186,15 @@ function registerTabs() {
 		return FeatureGate.check("custom_fonts");
 	});
 
+	// Chat tab (requires auth) — with unmount callback to stop polling
+	Modal.registerTab("chat", "Chat", function () {
+		return ModalChat.render();
+	}, function () {
+		ModalChat.onMount();
+	}, true, null, function () {
+		ModalChat.onUnmount();
+	});
+
 	// Admin tab (requires auth + admin authority)
 	Modal.registerTab("admin", "Admin", function () {
 		return ModalAdmin.render();
@@ -257,6 +270,9 @@ function ini() {
 
 	// Apply active layout on load
 	ModalLayoutDesigner.applyActiveLayout();
+
+	// Initialize chat service (visibility-aware polling)
+	ChatService.init();
 
 	// Wire up options modal
 	ModalOptions.setBGStateCallback(setNewBGState);

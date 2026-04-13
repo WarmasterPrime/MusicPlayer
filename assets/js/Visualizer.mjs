@@ -5,6 +5,7 @@ import { Lyrics } from "./Lyrics.mjs";
 import { Server } from "./lib/Server.mjs";
 import { ServerResponse } from "./lib/ServerResponse.mjs";
 import { Sys } from "./Sys.mjs";
+import { Visualizer3D } from "./Visualizer3D.mjs";
 import { setup as setupBG } from "./ext/Main.mjs";
 
 /**
@@ -62,6 +63,25 @@ export class Visual {
 	 * The current visualization design type.
 	 */
 	static currentDesign = "bar";
+
+	/** Particle state for snow/rain designs. */
+	static #snowParticles = [];
+	static #rainParticles = [];
+	/** Lightning bolt segments, rebuilt each frame. */
+	static #lightningBolts = [];
+	/** Tetris block state. */
+	static #tetrisBlocks = [];
+	static #tetrisTimer = 0;
+	/** Water simulation columns (height map). */
+	static #waterColumns = [];
+	static #waterVelocity = [];
+	static #waterDroplets = [];
+	static waterViscosity = 0.92;
+	static waterTension = 0.025;
+	static waterSpread = 0.25;
+
+	/** Track last-activated 3D design for change detection. */
+	static #last3DDesign = "";
 
 	/**
 	 * Whether to fill the polygon shape in line/curve designs.
@@ -316,6 +336,10 @@ export class Visual {
 			viz.bar.maxHeight = Visual.getMaxHeight();
 			viz.bar.width = viz.width / (viz.bufferLength * 2);
 			Visual.xOffset = 0;
+			// Resize 3D renderer if active
+			if (Visualizer3D.isActive) {
+				Visualizer3D.resize(viz.width, viz.height);
+			}
 		}
 	}
 
@@ -393,28 +417,57 @@ export class Visual {
 					Visual.progBarElm.render();
 				}
 				let tre = 0;
-				switch (Visual.currentDesign) {
-					case "bar":
-						tre = Visual.#renderBars();
-						break;
-					case "line":
-						tre = Visual.#renderLines();
-						break;
-					case "verticalLines":
-						tre = Visual.#renderVerticalLines();
-						break;
-					case "radial":
-						tre = Visual.#renderRadial();
-						break;
-					case "curvedLines":
-						tre = Visual.#renderCurvedLines();
-						break;
-					case "circle":
-						tre = Visual.#renderCircle();
-						break;
-					case "polygon":
-						tre = Visual.#renderPolygon();
-						break;
+				// 3D design activation / deactivation / rendering
+				if (Visualizer3D.is3D(Visual.currentDesign)) {
+					if (!Visualizer3D.isActive || Visual.#last3DDesign !== Visual.currentDesign) {
+						Visualizer3D.activate(Visual.currentDesign, viz.width, viz.height);
+						Visual.#last3DDesign = Visual.currentDesign;
+					}
+					Visualizer3D.clearViewport();
+					tre = Visualizer3D.render(viz.dataArray, viz.bufferLength, viz.bar.color);
+				} else {
+					if (Visualizer3D.isActive) {
+						Visualizer3D.deactivate();
+						Visual.#last3DDesign = "";
+					}
+					switch (Visual.currentDesign) {
+						case "bar":
+							tre = Visual.#renderBars();
+							break;
+						case "line":
+							tre = Visual.#renderLines();
+							break;
+						case "verticalLines":
+							tre = Visual.#renderVerticalLines();
+							break;
+						case "radial":
+							tre = Visual.#renderRadial();
+							break;
+						case "curvedLines":
+							tre = Visual.#renderCurvedLines();
+							break;
+						case "circle":
+							tre = Visual.#renderCircle();
+							break;
+						case "polygon":
+							tre = Visual.#renderPolygon();
+							break;
+						case "snow":
+							tre = Visual.#renderSnow();
+							break;
+						case "rain":
+							tre = Visual.#renderRain();
+							break;
+						case "lightning":
+							tre = Visual.#renderLightning();
+							break;
+						case "tetris":
+							tre = Visual.#renderTetris();
+							break;
+						case "water":
+							tre = Visual.#renderWater();
+							break;
+					}
 				}
 				if (newBGState) {
 					if (tre > 0) {
@@ -450,6 +503,19 @@ export class Visual {
 			tre += viz.dataArray[u] + 150;
 		}
 
+		// 3D design activation / deactivation
+		if (Visualizer3D.is3D(Visual.currentDesign)) {
+			if (!Visualizer3D.isActive || Visual.#last3DDesign !== Visual.currentDesign) {
+				Visualizer3D.activate(Visual.currentDesign, viz.width, viz.height);
+				Visual.#last3DDesign = Visual.currentDesign;
+			}
+		} else {
+			if (Visualizer3D.isActive) {
+				Visualizer3D.deactivate();
+				Visual.#last3DDesign = "";
+			}
+		}
+
 		let occupied = [];
 		Visual.activeLayout.forEach(comp => {
 			let x = (comp.x / 100) * viz.width;
@@ -457,7 +523,14 @@ export class Visual {
 
 			switch(comp.type) {
 				case "visualizer":
-					Visual.#renderDesignAt(x, y, comp.props);
+					if (Visualizer3D.is3D(Visual.currentDesign)) {
+						// Compute the same pixel region as #renderDesignAt
+						let vp = Visual.#getDesignRegion(x, y, comp.props);
+						Visualizer3D.setViewport(vp.x, vp.y, vp.w, vp.h);
+						tre = Visualizer3D.render(viz.dataArray, viz.bufferLength, viz.bar.color);
+					} else {
+						Visual.#renderDesignAt(x, y, comp.props);
+					}
 					break;
 				case "song-display":
 					Visual.#renderTextFlowAt(Visual.player ? Visual.player.formatDisplay() : "", x, y, comp.props, occupied);
@@ -492,22 +565,38 @@ export class Visual {
 		return tre;
 	}
 
-	static #renderDesignAt(x, y, props) {
+	/**
+	 * Computes the pixel region for a visualizer layout component.
+	 * Used by both #renderDesignAt (2D) and the 3D viewport path.
+	 * @param {number} cx - Center x in pixels.
+	 * @param {number} cy - Center y in pixels.
+	 * @param {object} props - Component props with width/height percentages.
+	 * @returns {{ x: number, y: number, w: number, h: number }}
+	 */
+	static #getDesignRegion(cx, cy, props) {
 		let widthPct = parseFloat(props.width);
 		if (Number.isNaN(widthPct) || widthPct <= 0) widthPct = 100;
 		let heightPct = parseFloat(props.height);
 		if (Number.isNaN(heightPct) || heightPct <= 0) heightPct = 35;
-		let width = (widthPct / 100) * viz.width;
-		let height = (heightPct / 100) * viz.height;
-		// Treat x,y as center position for the region
-		x = x - (width / 2);
-		y = y - (height / 2);
-		if (width > viz.width) width = viz.width;
-		if (height > viz.height) height = viz.height;
-		if (x + width > viz.width) x = Math.max(0, viz.width - width);
-		if (y + height > viz.height) y = Math.max(0, viz.height - height);
+		let w = (widthPct / 100) * viz.width;
+		let h = (heightPct / 100) * viz.height;
+		let x = cx - (w / 2);
+		let y = cy - (h / 2);
+		if (w > viz.width) w = viz.width;
+		if (h > viz.height) h = viz.height;
+		if (x + w > viz.width) x = Math.max(0, viz.width - w);
+		if (y + h > viz.height) y = Math.max(0, viz.height - h);
 		if (x < 0) x = 0;
 		if (y < 0) y = 0;
+		return { x, y, w, h };
+	}
+
+	static #renderDesignAt(x, y, props) {
+		let r = Visual.#getDesignRegion(x, y, props);
+		let width = r.w;
+		let height = r.h;
+		x = r.x;
+		y = r.y;
 
 		viz.ctx.save();
 		viz.ctx.translate(x, y);
@@ -541,6 +630,21 @@ export class Visual {
 			case "polygon":
 				Visual.#renderPolygon();
 				break;
+			case "snow":
+				Visual.#renderSnow();
+				break;
+			case "rain":
+				Visual.#renderRain();
+				break;
+			case "lightning":
+				Visual.#renderLightning();
+				break;
+			case "tetris":
+				Visual.#renderTetris();
+				break;
+			case "water":
+				Visual.#renderWater();
+				break;
 		}
 
 		viz.ctx.restore();
@@ -563,6 +667,18 @@ export class Visual {
 			if (Visual.progBarElm.y < 0) Visual.progBarElm.y = 0;
 
 			Visual.progBarElm.update();
+
+			// Calculate bass intensity for glow (same as normal render path)
+			let bassSum = 0;
+			let bassBins = Math.max(1, Math.min(8, Math.floor(viz.bufferLength * 0.03)));
+			for (let bi = 0; bi < bassBins; bi++) {
+				let val = viz.dataArray[bi] + 150;
+				if (val < 0) val = 0;
+				bassSum += val;
+			}
+			let bassAvg = bassSum / bassBins;
+			Visual.progBarElm.bassIntensity = Math.min(1.0, Math.max(0, bassAvg / 150));
+
 			Visual.progBarElm.render();
 
 			Visual.progBarElm.x = oldX;
@@ -1073,6 +1189,634 @@ export class Visual {
 		}
 		viz.ctx.closePath();
 		viz.ctx.stroke();
+
+		return tre;
+	}
+
+	// ═══════════════════════════════════════════════
+	//  SNOW DESIGN
+	// ═══════════════════════════════════════════════
+
+	/**
+	 * Audio-reactive snowfall. Bass intensity controls wind, spawn rate, and size.
+	 * @returns {number} Total energy.
+	 */
+	static #renderSnow() {
+		let tre = 0, toff = 150;
+		// Calculate bass energy
+		let bassSum = 0;
+		let bassBins = Math.max(1, Math.min(8, Math.floor(viz.bufferLength * 0.03)));
+		for (let bi = 0; bi < bassBins; bi++) {
+			let val = viz.dataArray[bi] + toff;
+			if (val < 0) val = 0;
+			bassSum += val;
+			tre += val;
+		}
+		let bass = Math.min(1.0, bassSum / (bassBins * 150));
+
+		// Total energy for mid/high freq sparkle
+		let totalEnergy = 0;
+		for (let i = bassBins; i < viz.bufferLength; i++) {
+			let v = Math.max(0, viz.dataArray[i] + toff);
+			tre += v;
+			totalEnergy += v;
+		}
+		let energyNorm = Math.min(1.0, totalEnergy / ((viz.bufferLength - bassBins) * 120));
+
+		// Spawn new particles across the FULL canvas width
+		let spawnCount = Math.floor(3 + bass * 12);
+		for (let s = 0; s < spawnCount; s++) {
+			Visual.#snowParticles.push({
+				x: Math.random() * viz.width,
+				y: -Math.random() * 40,
+				r: 1.5 + Math.random() * 3 + bass * 3,
+				vx: (Math.random() - 0.5) * 0.3,
+				vy: 0.5 + Math.random() * 1.5,
+				opacity: 0.4 + Math.random() * 0.6,
+				wobble: Math.random() * Math.PI * 2,
+				wobbleSpeed: 0.01 + Math.random() * 0.03
+			});
+		}
+
+		// Wind from bass (gentle, centered around zero)
+		let wind = (bass - 0.3) * 2.5;
+
+		// Update and draw
+		let r = viz.bar.color.r, g = viz.bar.color.g, b = viz.bar.color.b;
+		for (let i = Visual.#snowParticles.length - 1; i >= 0; i--) {
+			let p = Visual.#snowParticles[i];
+			p.wobble += p.wobbleSpeed;
+			p.x += p.vx + Math.sin(p.wobble) * 0.8 + wind;
+			p.y += p.vy + bass * 1.5;
+
+			// Generous margins so particles aren't culled too early
+			if (p.y > viz.height + 50 || p.x < -60 || p.x > viz.width + 60) {
+				Visual.#snowParticles.splice(i, 1);
+				continue;
+			}
+
+			viz.ctx.beginPath();
+			viz.ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+			let glow = bass > 0.4 ? bass * 0.3 : 0;
+			viz.ctx.fillStyle = "rgba(" + r + "," + g + "," + b + "," + (p.opacity * (0.6 + glow)) + ")";
+			viz.ctx.fill();
+
+			// Sparkle effect on high energy
+			if (energyNorm > 0.4 && Math.random() < 0.35) {
+				viz.ctx.beginPath();
+				viz.ctx.arc(p.x, p.y, p.r * 2.5, 0, Math.PI * 2);
+				viz.ctx.fillStyle = "rgba(255,255,255," + (0.04 + energyNorm * 0.08) + ")";
+				viz.ctx.fill();
+			}
+
+			// Extra bright sparkle on very high energy
+			if (energyNorm > 0.7 && Math.random() < 0.15) {
+				viz.ctx.save();
+				viz.ctx.shadowColor = "rgba(" + r + "," + g + "," + b + ",0.6)";
+				viz.ctx.shadowBlur = 8 + energyNorm * 12;
+				viz.ctx.beginPath();
+				viz.ctx.arc(p.x, p.y, p.r * 0.5, 0, Math.PI * 2);
+				viz.ctx.fillStyle = "rgba(255,255,255," + (0.5 + energyNorm * 0.3) + ")";
+				viz.ctx.fill();
+				viz.ctx.restore();
+			}
+		}
+
+		// Cap particle count
+		if (Visual.#snowParticles.length > 1000) Visual.#snowParticles.splice(0, Visual.#snowParticles.length - 1000);
+
+		return tre;
+	}
+
+	// ═══════════════════════════════════════════════
+	//  RAIN DESIGN
+	// ═══════════════════════════════════════════════
+
+	/**
+	 * Audio-reactive rain. Bass controls intensity, mid-freq controls streak length.
+	 * @returns {number} Total energy.
+	 */
+	static #renderRain() {
+		let tre = 0, toff = 150;
+		let bassSum = 0, midSum = 0;
+		let bassBins = Math.max(1, Math.min(8, Math.floor(viz.bufferLength * 0.03)));
+		let midStart = bassBins, midEnd = Math.min(viz.bufferLength, Math.floor(viz.bufferLength * 0.3));
+
+		for (let i = 0; i < viz.bufferLength; i++) {
+			let val = viz.dataArray[i] + toff;
+			if (val < 0) val = 0;
+			if (i < bassBins) bassSum += val;
+			else if (i < midEnd) midSum += val;
+			tre += val;
+		}
+		let bass = Math.min(1.0, bassSum / (bassBins * 150));
+		let mid = Math.min(1.0, midSum / ((midEnd - midStart) * 100));
+
+		// Spawn rain drops uniformly across full canvas width
+		let spawnCount = Math.floor(5 + bass * 25);
+		for (let s = 0; s < spawnCount; s++) {
+			Visual.#rainParticles.push({
+				x: Math.random() * viz.width,
+				y: -5 - Math.random() * 60,
+				len: 8 + mid * 25 + Math.random() * 10,
+				speed: 6 + Math.random() * 8 + bass * 10,
+				opacity: 0.2 + Math.random() * 0.5,
+				wind: (Math.random() - 0.5) * 0.5
+			});
+		}
+
+		let r = viz.bar.color.r, g = viz.bar.color.g, b = viz.bar.color.b;
+		viz.ctx.lineCap = "round";
+
+		for (let i = Visual.#rainParticles.length - 1; i >= 0; i--) {
+			let p = Visual.#rainParticles[i];
+			p.y += p.speed;
+			p.x += p.wind;
+
+			if (p.y > viz.height) {
+				// Splash effect at the actual bottom of the canvas
+				if (bass > 0.15) {
+					let splashR = 2 + bass * 8;
+					viz.ctx.beginPath();
+					viz.ctx.ellipse(p.x, viz.height - 1, splashR, splashR * 0.3, 0, 0, Math.PI * 2);
+					viz.ctx.fillStyle = "rgba(" + r + "," + g + "," + b + "," + (0.15 + bass * 0.25) + ")";
+					viz.ctx.fill();
+					// Small upward splash droplets
+					if (bass > 0.4 && Math.random() < 0.3) {
+						for (let d = 0; d < 2; d++) {
+							let dx = p.x + (Math.random() - 0.5) * splashR * 2;
+							let dy = viz.height - 2 - Math.random() * 4;
+							viz.ctx.beginPath();
+							viz.ctx.arc(dx, dy, 0.5 + Math.random(), 0, Math.PI * 2);
+							viz.ctx.fillStyle = "rgba(" + r + "," + g + "," + b + "," + (0.2 + bass * 0.2) + ")";
+							viz.ctx.fill();
+						}
+					}
+				}
+				Visual.#rainParticles.splice(i, 1);
+				continue;
+			}
+
+			viz.ctx.beginPath();
+			viz.ctx.moveTo(p.x, p.y);
+			viz.ctx.lineTo(p.x + p.wind * p.len * 0.3, p.y + p.len);
+			viz.ctx.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + p.opacity + ")";
+			viz.ctx.lineWidth = 1 + bass * 1.5;
+			viz.ctx.stroke();
+		}
+
+		// Lightning flash on heavy bass
+		if (bass > 0.85 && Math.random() < 0.15) {
+			viz.ctx.fillStyle = "rgba(" + r + "," + g + "," + b + ",0.04)";
+			viz.ctx.fillRect(0, 0, viz.width, viz.height);
+		}
+
+		if (Visual.#rainParticles.length > 1200) Visual.#rainParticles.splice(0, Visual.#rainParticles.length - 1200);
+
+		return tre;
+	}
+
+	// ═══════════════════════════════════════════════
+	//  LIGHTNING DESIGN
+	// ═══════════════════════════════════════════════
+
+	/**
+	 * Audio-reactive lightning bolts. Each frequency bin can spawn a bolt,
+	 * intensity controls brightness, branching, and arc complexity.
+	 * @returns {number} Total energy.
+	 */
+	static #renderLightning() {
+		let tre = 0, toff = 150;
+		let r = viz.bar.color.r, g = viz.bar.color.g, b = viz.bar.color.b;
+
+		// Build energy profile per frequency bin
+		let energies = [];
+		for (let i = 0; i < viz.bufferLength; i++) {
+			let val = Math.max(0, viz.dataArray[i] + toff);
+			energies.push(val);
+			tre += val;
+		}
+
+		let bassSum = 0;
+		let bassBins = Math.max(1, Math.min(8, Math.floor(viz.bufferLength * 0.03)));
+		for (let i = 0; i < bassBins; i++) bassSum += energies[i];
+		let bass = Math.min(1.0, bassSum / (bassBins * 150));
+		let totalNorm = Math.min(1.0, tre / (viz.bufferLength * 100));
+
+		// Map frequency bins to x positions across the full canvas width
+		let step = Math.max(1, Math.floor(viz.bufferLength / 24));
+		for (let i = 0; i < viz.bufferLength; i += step) {
+			let e = energies[i] / 300;
+			if (e < 0.25) continue;
+			// Bolt spawn probability tied to frequency value at that position
+			if (Math.random() > e * 0.65) continue;
+
+			let startX = (i / viz.bufferLength) * viz.width;
+			let startY = 0;
+			let endX = startX + (Math.random() - 0.5) * viz.width * 0.25;
+			let endY = viz.height * (0.65 + Math.random() * 0.35);
+
+			Visual.#drawLightningBolt(startX, startY, endX, endY, e, r, g, b, 4);
+		}
+
+		// Extra ambient bolts on high total energy
+		let extraBolts = Math.floor(totalNorm * 3);
+		for (let eb = 0; eb < extraBolts; eb++) {
+			if (Math.random() < 0.4) {
+				let sx = Math.random() * viz.width;
+				let ex = sx + (Math.random() - 0.5) * viz.width * 0.35;
+				Visual.#drawLightningBolt(sx, 0, ex, viz.height * (0.7 + Math.random() * 0.3), totalNorm, r, g, b, 4);
+			}
+		}
+
+		// Background screen flash on extreme bass (>0.85)
+		if (bass > 0.85) {
+			viz.ctx.fillStyle = "rgba(" + r + "," + g + "," + b + "," + (0.03 + bass * 0.04) + ")";
+			viz.ctx.fillRect(0, 0, viz.width, viz.height);
+		}
+
+		return tre;
+	}
+
+	/**
+	 * Draws a single jagged lightning bolt with recursive branching and glow.
+	 */
+	static #drawLightningBolt(x1, y1, x2, y2, intensity, r, g, b, depth) {
+		if (depth <= 0) return;
+		let segments = 8 + Math.floor(intensity * 10);
+		let dx = (x2 - x1) / segments;
+		let dy = (y2 - y1) / segments;
+		// Significant horizontal jitter for jagged look
+		let jitter = 30 + intensity * 60;
+
+		let alpha = Math.min(1, 0.4 + intensity * 0.6);
+		let width = 0.8 + intensity * 2.5 * (depth / 4);
+
+		// Collect points for the bolt path
+		let points = [{ x: x1, y: y1 }];
+		for (let s = 1; s <= segments; s++) {
+			let nx, ny;
+			if (s < segments) {
+				nx = x1 + dx * s + (Math.random() - 0.5) * jitter;
+				ny = y1 + dy * s + (Math.random() - 0.5) * jitter * 0.15;
+			} else {
+				nx = x2;
+				ny = y2;
+			}
+			points.push({ x: nx, y: ny });
+		}
+
+		// Draw the colored bolt with glow
+		viz.ctx.save();
+		viz.ctx.shadowColor = "rgba(" + r + "," + g + "," + b + "," + (alpha * 0.7) + ")";
+		viz.ctx.shadowBlur = 15 + intensity * 15;
+		viz.ctx.beginPath();
+		viz.ctx.moveTo(points[0].x, points[0].y);
+		for (let s = 1; s < points.length; s++) {
+			viz.ctx.lineTo(points[s].x, points[s].y);
+		}
+		viz.ctx.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+		viz.ctx.lineWidth = width;
+		viz.ctx.stroke();
+		viz.ctx.restore();
+
+		// Bright white hot core over the colored bolt
+		viz.ctx.beginPath();
+		viz.ctx.moveTo(points[0].x, points[0].y);
+		for (let s = 1; s < points.length; s++) {
+			viz.ctx.lineTo(points[s].x, points[s].y);
+		}
+		viz.ctx.strokeStyle = "rgba(255,255,255," + (alpha * 0.6) + ")";
+		viz.ctx.lineWidth = Math.max(0.5, width * 0.3);
+		viz.ctx.stroke();
+
+		// Branching: at each segment, 30% chance to fork at reduced intensity
+		for (let s = 2; s < points.length - 1; s++) {
+			if (depth > 1 && Math.random() < 0.3) {
+				let branchLen = (y2 - y1) * (0.2 + Math.random() * 0.25);
+				let bx = points[s].x + (Math.random() - 0.5) * jitter * 1.5;
+				let by = points[s].y + branchLen;
+				Visual.#drawLightningBolt(points[s].x, points[s].y, bx, by, intensity * 0.45, r, g, b, depth - 1);
+			}
+		}
+	}
+
+	// ═══════════════════════════════════════════════
+	//  TETRIS DESIGN
+	// ═══════════════════════════════════════════════
+
+	/**
+	 * Audio-reactive falling tetris blocks. Each frequency band drops a block,
+	 * bass controls fall speed, blocks stack and clear when a row fills.
+	 * @returns {number} Total energy.
+	 */
+	static #renderTetris() {
+		let tre = 0, toff = 150;
+		let cols = 20;
+		let cellW = viz.width / cols;
+		let cellH = cellW; // square cells
+		let r = viz.bar.color.r, g = viz.bar.color.g, b = viz.bar.color.b;
+
+		// Energy
+		let bassSum = 0;
+		let bassBins = Math.max(1, Math.min(8, Math.floor(viz.bufferLength * 0.03)));
+		for (let i = 0; i < viz.bufferLength; i++) {
+			let val = Math.max(0, viz.dataArray[i] + toff);
+			if (i < bassBins) bassSum += val;
+			tre += val;
+		}
+		let bass = Math.min(1.0, bassSum / (bassBins * 150));
+
+		Visual.#tetrisTimer++;
+
+		// Spawn new blocks using overall energy mapped to all columns
+		let spawnInterval = Math.max(1, Math.floor(5 - bass * 4));
+		if (Visual.#tetrisTimer % spawnInterval === 0) {
+			// Compute overall energy norm
+			let totalNorm = Math.min(1.0, tre / (viz.bufferLength * 100));
+
+			for (let c = 0; c < cols; c++) {
+				// Each column checks a logarithmic frequency band for local energy
+				let logMax = Math.log(viz.bufferLength + 1);
+				let binStart = Math.floor(Math.exp((c / cols) * logMax) - 1);
+				let binEnd = Math.floor(Math.exp(((c + 1) / cols) * logMax) - 1);
+				binStart = Math.max(0, Math.min(viz.bufferLength - 1, binStart));
+				binEnd = Math.max(binStart + 1, Math.min(viz.bufferLength, binEnd));
+
+				let maxVal = 0;
+				for (let i = binStart; i < binEnd; i++) {
+					let v = Math.max(0, viz.dataArray[i] + toff);
+					if (v > maxVal) maxVal = v;
+				}
+				let localNorm = maxVal / 300;
+
+				// Blend local frequency energy with overall energy so
+				// all columns can spawn blocks during energetic sections
+				let blended = localNorm * 0.6 + totalNorm * 0.4;
+				if (blended > 0.25 && Math.random() < blended * 0.35) {
+					let shade = 0.3 + blended * 0.7;
+					Visual.#tetrisBlocks.push({
+						col: c,
+						y: -cellH,
+						speed: 2 + bass * 5 + Math.random() * 1.5,
+						color: { r: Math.floor(r * shade), g: Math.floor(g * shade), b: Math.floor(b * shade) },
+						settled: false,
+						alpha: 0.7 + blended * 0.3,
+						flash: 0
+					});
+				}
+			}
+		}
+
+		// Build height map of settled blocks per column
+		let heightMap = new Array(cols).fill(viz.height);
+		for (let blk of Visual.#tetrisBlocks) {
+			if (blk.settled && blk.y < heightMap[blk.col]) {
+				heightMap[blk.col] = blk.y;
+			}
+		}
+
+		// Update falling blocks
+		for (let blk of Visual.#tetrisBlocks) {
+			if (blk.settled) {
+				if (blk.flash > 0) blk.flash -= 0.05;
+				continue;
+			}
+			blk.y += blk.speed;
+			let floor = heightMap[blk.col] - cellH;
+			if (floor < 0) floor = 0;
+			if (blk.y >= floor) {
+				blk.y = Math.round(floor / cellH) * cellH;
+				blk.settled = true;
+				if (blk.y < heightMap[blk.col]) heightMap[blk.col] = blk.y;
+			}
+		}
+
+		// Clear full rows with a brief flash
+		let rowCounts = {};
+		for (let blk of Visual.#tetrisBlocks) {
+			if (!blk.settled) continue;
+			let rowKey = Math.round(blk.y / cellH);
+			rowCounts[rowKey] = (rowCounts[rowKey] || 0) + 1;
+		}
+		for (let rowKey in rowCounts) {
+			if (rowCounts[rowKey] >= cols) {
+				let rowY = parseInt(rowKey) * cellH;
+				// Flash the row before clearing
+				viz.ctx.fillStyle = "rgba(255,255,255,0.25)";
+				viz.ctx.fillRect(0, rowY, viz.width, cellH);
+				Visual.#tetrisBlocks = Visual.#tetrisBlocks.filter(bl => !(bl.settled && Math.abs(bl.y - rowY) < 2));
+				// Drop settled blocks above the cleared row
+				for (let blk of Visual.#tetrisBlocks) {
+					if (blk.settled && blk.y < rowY) {
+						blk.y += cellH;
+					}
+				}
+			}
+		}
+
+		// Cap at 600 blocks
+		if (Visual.#tetrisBlocks.length > 600) {
+			let settled = Visual.#tetrisBlocks.filter(bl => bl.settled);
+			if (settled.length > 400) {
+				let toRemove = settled.slice(0, settled.length - 400);
+				let removeSet = new Set(toRemove);
+				Visual.#tetrisBlocks = Visual.#tetrisBlocks.filter(bl => !removeSet.has(bl));
+			}
+		}
+
+		// Draw blocks as colored rounded-ish rectangles with border highlight
+		for (let blk of Visual.#tetrisBlocks) {
+			let bx = blk.col * cellW;
+			let by = blk.y;
+			let pad = 1.5;
+			let rr = Math.min(4, cellW * 0.12);
+
+			// Block fill
+			let cr = blk.color.r, cg = blk.color.g, cb = blk.color.b;
+			let fa = blk.alpha + (blk.flash > 0 ? blk.flash * 0.3 : 0);
+			viz.ctx.beginPath();
+			viz.ctx.roundRect(bx + pad, by + pad, cellW - pad * 2, cellH - pad * 2, rr);
+			viz.ctx.fillStyle = "rgba(" + cr + "," + cg + "," + cb + "," + fa + ")";
+			viz.ctx.fill();
+
+			// Subtle top-left highlight
+			viz.ctx.beginPath();
+			viz.ctx.roundRect(bx + pad, by + pad, cellW - pad * 2, cellH - pad * 2, rr);
+			viz.ctx.strokeStyle = "rgba(255,255,255,0.15)";
+			viz.ctx.lineWidth = 1;
+			viz.ctx.stroke();
+
+			// Inner shadow on bottom-right
+			viz.ctx.beginPath();
+			viz.ctx.moveTo(bx + cellW - pad, by + pad + rr);
+			viz.ctx.lineTo(bx + cellW - pad, by + cellH - pad - rr);
+			viz.ctx.strokeStyle = "rgba(0,0,0,0.15)";
+			viz.ctx.lineWidth = 1;
+			viz.ctx.stroke();
+		}
+
+		return tre;
+	}
+
+	// ═══════════════════════════════════════════════
+	//  REACTIVE WATER SPEAKER DESIGN
+	// ═══════════════════════════════════════════════
+
+	/**
+	 * Simulates a water surface disturbed by audio frequencies.
+	 * Bass creates large waves, highs create ripples. Adjustable viscosity and tension.
+	 * @returns {number} Total energy.
+	 */
+	static #renderWater() {
+		let tre = 0, toff = 150;
+		let r = viz.bar.color.r, g = viz.bar.color.g, b = viz.bar.color.b;
+
+		// Energy from frequency data
+		let bassSum = 0;
+		let bassBins = Math.max(1, Math.min(8, Math.floor(viz.bufferLength * 0.03)));
+		for (let i = 0; i < viz.bufferLength; i++) {
+			let val = Math.max(0, viz.dataArray[i] + toff);
+			if (i < bassBins) bassSum += val;
+			tre += val;
+		}
+		let bass = Math.min(1.0, bassSum / (bassBins * 150));
+
+		// Pool geometry
+		let poolSurface = viz.height * 0.85;
+		let poolBottom = viz.height;
+
+		// ── 1. Draw the water pool at the bottom 15% of canvas ──
+		let poolGrad = viz.ctx.createLinearGradient(0, poolSurface, 0, poolBottom);
+		let dr = Math.floor(r * 0.25), dg = Math.floor(g * 0.25), db = Math.floor(b * 0.25);
+		poolGrad.addColorStop(0, "rgba(" + Math.floor(r * 0.4) + "," + Math.floor(g * 0.4) + "," + Math.floor(b * 0.4) + ",0.5)");
+		poolGrad.addColorStop(1, "rgba(" + dr + "," + dg + "," + db + ",0.7)");
+		viz.ctx.fillStyle = poolGrad;
+		viz.ctx.fillRect(0, poolSurface, viz.width, poolBottom - poolSurface);
+
+		// Pool surface highlight line
+		viz.ctx.beginPath();
+		viz.ctx.moveTo(0, poolSurface);
+		viz.ctx.lineTo(viz.width, poolSurface);
+		viz.ctx.strokeStyle = "rgba(" + r + "," + g + "," + b + ",0.35)";
+		viz.ctx.lineWidth = 1.5;
+		viz.ctx.stroke();
+
+		// Water option mappings
+		let jetWidthMult = Visual.waterViscosity;      // viscosity -> jet width
+		let gravity = 0.3 + (1 - Visual.waterTension) * 0.4; // tension -> gravity for droplets (inverted: high tension = less gravity)
+		let hSpread = Visual.waterSpread;               // spread -> horizontal spread
+
+		// ── 2. Draw jets from frequency bins across the canvas ──
+		let binStep = Math.max(2, Math.floor(viz.bufferLength / 64));
+		for (let i = 0; i < viz.bufferLength; i += binStep) {
+			let val = Math.max(0, viz.dataArray[i] + toff);
+			let norm = val / 300;
+			if (norm < 0.15) continue;
+
+			let xPos = (i / viz.bufferLength) * viz.width;
+			let jetHeight = norm * viz.height * 0.7;
+			let jetTop = poolSurface - jetHeight;
+			let jetWidth = (3 + norm * 8) * jetWidthMult;
+
+			// Tapered jet gradient (wider at base, narrower at top)
+			let jetGrad = viz.ctx.createLinearGradient(0, poolSurface, 0, jetTop);
+			jetGrad.addColorStop(0, "rgba(" + r + "," + g + "," + b + ",0.4)");
+			jetGrad.addColorStop(0.5, "rgba(" + r + "," + g + "," + b + ",0.25)");
+			jetGrad.addColorStop(1, "rgba(" + r + "," + g + "," + b + ",0.05)");
+
+			viz.ctx.beginPath();
+			viz.ctx.moveTo(xPos - jetWidth, poolSurface);
+			viz.ctx.lineTo(xPos - jetWidth * 0.2, jetTop);
+			viz.ctx.lineTo(xPos + jetWidth * 0.2, jetTop);
+			viz.ctx.lineTo(xPos + jetWidth, poolSurface);
+			viz.ctx.closePath();
+			viz.ctx.fillStyle = jetGrad;
+			viz.ctx.fill();
+
+			// Bright core line for active jets
+			if (norm > 0.3) {
+				viz.ctx.beginPath();
+				viz.ctx.moveTo(xPos, poolSurface);
+				viz.ctx.lineTo(xPos, jetTop + jetHeight * 0.1);
+				viz.ctx.strokeStyle = "rgba(255,255,255," + (0.1 + norm * 0.2) + ")";
+				viz.ctx.lineWidth = 1;
+				viz.ctx.stroke();
+			}
+
+			// ── 3. Spawn droplets at the jet tip ──
+			if (norm > 0.2) {
+				let dropCount = 1 + Math.floor(norm * 2);
+				for (let d = 0; d < dropCount; d++) {
+					if (Visual.#waterDroplets.length < 800) {
+						Visual.#waterDroplets.push({
+							x: xPos + (Math.random() - 0.5) * jetWidth * 0.6,
+							y: jetTop,
+							vx: (Math.random() - 0.5) * 3 * hSpread,
+							vy: -(1 + Math.random() * 3 * norm),
+							radius: 1 + Math.random() * 2.5,
+							alpha: 0.4 + Math.random() * 0.4,
+							life: 1.0
+						});
+					}
+				}
+			}
+		}
+
+		// ── Update and draw droplets ──
+		let ripples = [];
+		for (let i = Visual.#waterDroplets.length - 1; i >= 0; i--) {
+			let d = Visual.#waterDroplets[i];
+			d.vy += gravity;
+			d.x += d.vx;
+			d.y += d.vy;
+			d.life -= 0.008;
+
+			// Droplet falls below pool surface: remove and create ripple
+			if (d.y >= poolSurface) {
+				ripples.push({ x: d.x, r: d.radius * 2 + Math.abs(d.vy) * 0.5 });
+				Visual.#waterDroplets.splice(i, 1);
+				continue;
+			}
+
+			// Remove if off-screen or faded
+			if (d.x < -20 || d.x > viz.width + 20 || d.y < -50 || d.life <= 0) {
+				Visual.#waterDroplets.splice(i, 1);
+				continue;
+			}
+
+			// Draw droplet
+			viz.ctx.beginPath();
+			viz.ctx.arc(d.x, d.y, d.radius, 0, Math.PI * 2);
+			viz.ctx.fillStyle = "rgba(" + r + "," + g + "," + b + "," + (d.alpha * d.life) + ")";
+			viz.ctx.fill();
+		}
+
+		// ── 4. Draw ripples on pool surface ──
+		for (let rp of ripples) {
+			for (let ring = 0; ring < 3; ring++) {
+				let rippleR = rp.r + ring * 4;
+				let rippleAlpha = Math.max(0, 0.2 - ring * 0.06);
+				viz.ctx.beginPath();
+				viz.ctx.ellipse(rp.x, poolSurface + 1, rippleR, rippleR * 0.25, 0, 0, Math.PI * 2);
+				viz.ctx.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + rippleAlpha + ")";
+				viz.ctx.lineWidth = 1;
+				viz.ctx.stroke();
+			}
+		}
+
+		// Ambient pool shimmer based on bass
+		if (bass > 0.3) {
+			let shimmerCount = Math.floor(bass * 5);
+			for (let s = 0; s < shimmerCount; s++) {
+				let sx = Math.random() * viz.width;
+				let sy = poolSurface + Math.random() * (poolBottom - poolSurface) * 0.3;
+				viz.ctx.beginPath();
+				viz.ctx.arc(sx, sy, 0.5 + Math.random() * 1.5, 0, Math.PI * 2);
+				viz.ctx.fillStyle = "rgba(255,255,255," + (0.03 + bass * 0.05) + ")";
+				viz.ctx.fill();
+			}
+		}
 
 		return tre;
 	}

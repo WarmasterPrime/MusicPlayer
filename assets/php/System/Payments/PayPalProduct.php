@@ -18,9 +18,10 @@ class PayPalProduct {
 	 * @param string $description Product description.
 	 * @param string|null $metadata JSON metadata string.
 	 * @param bool $syncToPayPal Whether to create in PayPal too.
+	 * @param string|null $featureFlags Comma-separated FeatureGate keys.
 	 * @return array Product record or { error }
 	 */
-	public static function create(string $name, string $description = "", ?string $metadata = null, bool $syncToPayPal = true): array {
+	public static function create(string $name, string $description = "", ?string $metadata = null, bool $syncToPayPal = true, ?string $featureFlags = null): array {
 		$pdo = Database::connect("store");
 		$id = Database::generateId(255);
 		$paypalProductId = null;
@@ -43,17 +44,18 @@ class PayPalProduct {
 		}
 
 		$stmt = $pdo->prepare("
-			INSERT INTO `products` (`id`, `paypal_product_id`, `name`, `description`, `active`, `metadata`)
-			VALUES (?, ?, ?, ?, 1, ?)
+			INSERT INTO `products` (`id`, `paypal_product_id`, `name`, `description`, `active`, `metadata`, `feature_flags`)
+			VALUES (?, ?, ?, ?, 1, ?, ?)
 		");
-		$stmt->execute([$id, $paypalProductId, $name, $description, $metadata]);
+		$stmt->execute([$id, $paypalProductId, $name, $description, $metadata, $featureFlags]);
 
 		return [
 			"id" => $id,
 			"paypal_product_id" => $paypalProductId,
 			"name" => $name,
 			"description" => $description,
-			"active" => 1
+			"active" => 1,
+			"feature_flags" => $featureFlags
 		];
 	}
 
@@ -94,6 +96,10 @@ class PayPalProduct {
 		if (isset($fields["metadata"])) {
 			$sets[] = "`metadata` = ?";
 			$values[] = is_string($fields["metadata"]) ? $fields["metadata"] : json_encode($fields["metadata"]);
+		}
+		if (array_key_exists("feature_flags", $fields)) {
+			$sets[] = "`feature_flags` = ?";
+			$values[] = $fields["feature_flags"];
 		}
 
 		if (empty($sets)) {

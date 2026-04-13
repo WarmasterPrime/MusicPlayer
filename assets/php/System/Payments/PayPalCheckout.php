@@ -98,21 +98,30 @@ class PayPalCheckout {
 	}
 
 	/**
-	 * Creates a PayPal subscription.
+	 * Creates a PayPal subscription with optional coupon discount.
 	 *
 	 * POST /v1/billing/subscriptions
+	 *
+	 * When a coupon is provided, the billing cycle pricing is overridden:
+	 *   - "forever" duration: the regular cycle price is set to the discounted amount.
+	 *   - "once": a 1-cycle trial at the discounted price is prepended, regular stays full.
+	 *   - "repeating": an N-cycle trial at the discounted price, regular stays full.
 	 *
 	 * @param string $planId The PayPal billing plan ID.
 	 * @param string $returnUrl URL to redirect after approval.
 	 * @param string $cancelUrl URL to redirect if subscriber cancels.
 	 * @param string $email Optional subscriber email address.
+	 * @param array|null $coupon Optional coupon info with keys:
+	 *   discount (int cents), duration (string), duration_in_months (int|null),
+	 *   original_amount (int cents), currency (string).
 	 * @return array { subscription_id, approval_url } or { error }
 	 */
 	public static function createSubscription(
 		string $planId,
 		string $returnUrl,
 		string $cancelUrl,
-		string $email = ""
+		string $email = "",
+		?array $coupon = null
 	): array {
 		$data = [
 			"plan_id" => $planId,
@@ -129,6 +138,94 @@ class PayPalCheckout {
 			$data["subscriber"] = [
 				"email_address" => $email
 			];
+		}
+
+		// Apply coupon discount by overriding the plan's billing cycle pricing
+		if ($coupon && $coupon["discount"] > 0) {
+			$originalCents = (int)$coupon["original_amount"];
+			$discountCents = (int)$coupon["discount"];
+			$discountedCents = max(0, $originalCents - $discountCents);
+			$currency = strtoupper($coupon["currency"] ?? "USD");
+			$duration = $coupon["duration"] ?? "forever";
+			$durationMonths = isset($coupon["duration_in_months"]) ? (int)$coupon["duration_in_months"] : 0;
+
+			$discountedStr = number_format($discountedCents / 100, 2, ".", "");
+			$originalStr = number_format($originalCents / 100, 2, ".", "");
+
+			if ($duration === "forever") {
+				// Override the regular cycle to the discounted price permanently
+				$data["plan"] = [
+					"billing_cycles" => [
+						[
+							"sequence" => 1,
+							"tenure_type" => "REGULAR",
+							"total_cycles" => 0,
+							"pricing_scheme" => [
+								"fixed_price" => [
+									"value" => $discountedStr,
+									"currency_code" => $currency
+								]
+							]
+						]
+					]
+				];
+			} elseif ($duration === "once") {
+				// 1-cycle trial at discounted price, then regular at full price
+				$data["plan"] = [
+					"billing_cycles" => [
+						[
+							"sequence" => 1,
+							"tenure_type" => "TRIAL",
+							"total_cycles" => 1,
+							"pricing_scheme" => [
+								"fixed_price" => [
+									"value" => $discountedStr,
+									"currency_code" => $currency
+								]
+							]
+						],
+						[
+							"sequence" => 2,
+							"tenure_type" => "REGULAR",
+							"total_cycles" => 0,
+							"pricing_scheme" => [
+								"fixed_price" => [
+									"value" => $originalStr,
+									"currency_code" => $currency
+								]
+							]
+						]
+					]
+				];
+			} elseif ($duration === "repeating" && $durationMonths > 0) {
+				// N-cycle trial at discounted price, then regular at full price
+				$data["plan"] = [
+					"billing_cycles" => [
+						[
+							"sequence" => 1,
+							"tenure_type" => "TRIAL",
+							"total_cycles" => $durationMonths,
+							"pricing_scheme" => [
+								"fixed_price" => [
+									"value" => $discountedStr,
+									"currency_code" => $currency
+								]
+							]
+						],
+						[
+							"sequence" => 2,
+							"tenure_type" => "REGULAR",
+							"total_cycles" => 0,
+							"pricing_scheme" => [
+								"fixed_price" => [
+									"value" => $originalStr,
+									"currency_code" => $currency
+								]
+							]
+						]
+					]
+				];
+			}
 		}
 
 		$result = PayPalApi::post("v1/billing/subscriptions", $data);

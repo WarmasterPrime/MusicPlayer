@@ -269,21 +269,43 @@ export class StoreProducts {
 		return symbol + amount;
 	}
 
+	/** Human-readable labels for feature flag keys. */
+	static featureLabels = {
+		"file_upload": "File Upload",
+		"cloud_storage": "Cloud Storage",
+		"creator_badge": "Creator Badge",
+		"playlists": "Playlists",
+		"url_shared_playlists": "Shared Playlist URLs",
+		"custom_backgrounds": "Custom Backgrounds",
+		"custom_fonts": "Custom Fonts",
+		"lyrics_display": "Lyrics Display",
+		"lyrics_editing": "Lyrics Editing",
+		"song_name_customization": "Song Name Customization",
+		"layout_designer": "Layout Designer",
+		"no_ads": "No Ads"
+	};
+
 	/**
-	 * Parses features from product metadata.
-	 * Expects metadata.features as a comma-separated string.
+	 * Parses features from the product's feature_flags column.
+	 * Falls back to metadata.features for backward compatibility.
 	 * @param {object} product
-	 * @returns {string[]}
+	 * @returns {string[]} Human-readable feature labels.
 	 */
 	static parseFeatures(product) {
-		let meta = product.metadata || {};
-		// Handle metadata as JSON string (local DB) or object (legacy)
-		if (typeof meta === "string") {
-			try { meta = JSON.parse(meta); } catch (e) { meta = {}; }
+		let flagStr = product.feature_flags || "";
+		// Fallback: legacy metadata.features
+		if (!flagStr) {
+			let meta = product.metadata || {};
+			if (typeof meta === "string") {
+				try { meta = JSON.parse(meta); } catch (e) { meta = {}; }
+			}
+			flagStr = (meta && meta.features) ? meta.features : "";
 		}
-		let featStr = meta.features || "";
-		if (featStr.length === 0) return [];
-		return featStr.split(",").map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
+		if (flagStr.length === 0) return [];
+		return flagStr.split(",")
+			.map(function (s) { return s.trim(); })
+			.filter(function (s) { return s.length > 0; })
+			.map(function (key) { return StoreProducts.featureLabels[key] || key.replace(/_/g, " "); });
 	}
 
 	static escapeHtml(str) {

@@ -30,22 +30,24 @@ export class ModalAdmin {
 		{ key: "ServerViewUnlisted", group: "Server View" },
 		{ key: "ServerViewPrivate", group: "Server View" },
 		{ key: "StoreAdmin", group: "Admin" },
-		{ key: "UserAdmin", group: "Admin" }
+		{ key: "UserAdmin", group: "Admin" },
+		{ key: "Moderator", group: "Admin" }
 	];
 
-	/** All feature keys that can be granted to users. */
+	/** All feature keys that can be granted to users or assigned to products. */
 	static featureKeys = [
-		{ key: "file_upload", group: "Content" },
-		{ key: "lyrics_display", group: "Content" },
-		{ key: "lyrics_editing", group: "Content" },
-		{ key: "song_name_customization", group: "Content" },
-		{ key: "playlists", group: "Playlists" },
-		{ key: "url_shared_playlists", group: "Playlists" },
-		{ key: "cloud_storage", group: "Storage" },
-		{ key: "custom_fonts", group: "Appearance" },
-		{ key: "custom_backgrounds", group: "Appearance" },
-		{ key: "layout_designer", group: "Appearance" },
-		{ key: "creator_badge", group: "Misc" }
+		{ key: "file_upload", group: "Content", label: "File Upload" },
+		{ key: "lyrics_display", group: "Content", label: "Lyrics Display" },
+		{ key: "lyrics_editing", group: "Content", label: "Lyrics Editing" },
+		{ key: "song_name_customization", group: "Content", label: "Song Name Customization" },
+		{ key: "playlists", group: "Playlists", label: "Playlists" },
+		{ key: "url_shared_playlists", group: "Playlists", label: "Shared Playlist URLs" },
+		{ key: "cloud_storage", group: "Storage", label: "Cloud Storage" },
+		{ key: "custom_fonts", group: "Appearance", label: "Custom Fonts" },
+		{ key: "custom_backgrounds", group: "Appearance", label: "Custom Backgrounds" },
+		{ key: "layout_designer", group: "Appearance", label: "Layout Designer" },
+		{ key: "creator_badge", group: "Misc", label: "Creator Badge" },
+		{ key: "no_ads", group: "Misc", label: "No Ads" }
 	];
 
 	static render() {
@@ -144,7 +146,9 @@ export class ModalAdmin {
 		html += "<div class='modal-form-title' style='font-size:16px;'>Create Product</div>";
 		html += "<div class='modal-form-group'><label>Name</label><input type='text' id='admin-product-name' /></div>";
 		html += "<div class='modal-form-group'><label>Description</label><textarea id='admin-product-desc' rows='3'></textarea></div>";
-		html += "<div class='modal-form-group'><label>Features (comma-separated metadata)</label><input type='text' id='admin-product-features' placeholder='feature1,feature2' /></div>";
+		html += "<div class='modal-form-group'><label>Feature Flags</label>";
+		html += ModalAdmin.renderFeatureFlagCheckboxes("pf");
+		html += "</div>";
 		html += "<hr style='border-color:rgba(255,50,100,0.2);margin:12px 0;' />";
 		html += "<div class='modal-form-title' style='font-size:14px;'>Initial Price</div>";
 		html += "<div class='modal-form-group'><label>Amount ($)</label><input type='number' id='admin-price-amount' value='9.99' step='0.01' min='0.01' /></div>";
@@ -158,15 +162,13 @@ export class ModalAdmin {
 			let msg = document.getElementById("admin-msg");
 			let name = document.getElementById("admin-product-name")?.value || "";
 			if (!name.trim()) { ModalAdmin.setMsg(msg, "Name required.", "error"); return; }
-			let metadata = {};
-			let features = (document.getElementById("admin-product-features")?.value || "").trim();
-			if (features) metadata["features"] = features;
+			let featureFlags = ModalAdmin.readFeatureFlagCheckboxes("pf");
 			ModalAdmin.setMsg(msg, "Creating...", "");
 			try {
 				let result = await Api.send("assets/php/admin/createProduct.php", {
 					"name": name,
 					"description": document.getElementById("admin-product-desc")?.value || "",
-					"metadata": metadata
+					"feature_flags": featureFlags
 				});
 				if (result.success && result.product) {
 					let priceResult = await Api.send("assets/php/admin/createPrice.php", {
@@ -192,10 +194,14 @@ export class ModalAdmin {
 		html += "<div class='modal-form-group'><label>Name</label><input type='text' id='admin-product-name' value='" + ModalAdmin.escapeAttr(product.name || "") + "' /></div>";
 		html += "<div class='modal-form-group'><label>Description</label><textarea id='admin-product-desc' rows='3'>" + ModalAdmin.escapeHtml(product.description || "") + "</textarea></div>";
 		html += "<div class='modal-form-group'><label>Active</label><select id='admin-product-active'><option value='true'" + (product.active != 0 ? " selected" : "") + ">Active</option><option value='false'" + (product.active == 0 ? " selected" : "") + ">Inactive</option></select></div>";
-		let metaObj = product.metadata || {};
-		if (typeof metaObj === "string") { try { metaObj = JSON.parse(metaObj); } catch (e) { metaObj = {}; } }
-		let featuresMeta = (metaObj && metaObj.features) ? metaObj.features : "";
-		html += "<div class='modal-form-group'><label>Features (metadata)</label><input type='text' id='admin-product-features' value='" + ModalAdmin.escapeAttr(featuresMeta) + "' /></div>";
+		let currentFlags = [];
+		if (product.feature_flags) {
+			let raw = typeof product.feature_flags === "string" ? product.feature_flags : "";
+			currentFlags = raw.split(",").map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
+		}
+		html += "<div class='modal-form-group'><label>Feature Flags</label>";
+		html += ModalAdmin.renderFeatureFlagCheckboxes("pf", currentFlags);
+		html += "</div>";
 
 		// Show current prices (editable)
 		html += "<hr style='border-color:rgba(255,50,100,0.2);margin:12px 0;' />";
@@ -243,9 +249,7 @@ export class ModalAdmin {
 
 		document.getElementById("admin-product-save").addEventListener("click", async function () {
 			let msg = document.getElementById("admin-msg");
-			let metadata = {};
-			let features = (document.getElementById("admin-product-features")?.value || "").trim();
-			if (features) metadata["features"] = features;
+			let featureFlags = ModalAdmin.readFeatureFlagCheckboxes("pf");
 			ModalAdmin.setMsg(msg, "Saving...", "");
 			try {
 				let result = await Api.send("assets/php/admin/updateProduct.php", {
@@ -253,7 +257,7 @@ export class ModalAdmin {
 					"name": document.getElementById("admin-product-name")?.value || "",
 					"description": document.getElementById("admin-product-desc")?.value || "",
 					"active": document.getElementById("admin-product-active")?.value === "true",
-					"metadata": metadata
+					"feature_flags": featureFlags
 				});
 				if (result.success) { Toast.success("Product saved."); ModalAdmin.renderSubTab("products"); }
 				else { ModalAdmin.setMsg(msg, result.message || "Failed.", "error"); }
@@ -982,5 +986,48 @@ export class ModalAdmin {
 	static escapeAttr(str) {
 		if (typeof str !== "string") return "";
 		return str.replace(/&/g, "&amp;").replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+	}
+
+	/**
+	 * Renders grouped feature flag checkboxes.
+	 * @param {string} prefix - ID prefix for checkbox elements (e.g. "pf" for product flags).
+	 * @param {string[]} checkedKeys - Array of currently active feature keys.
+	 * @returns {string} HTML string.
+	 */
+	static renderFeatureFlagCheckboxes(prefix, checkedKeys = []) {
+		let groups = {};
+		for (let f of ModalAdmin.featureKeys) {
+			if (!groups[f.group]) groups[f.group] = [];
+			groups[f.group].push(f);
+		}
+		let html = "<div class='admin-flag-grid'>";
+		for (let group in groups) {
+			html += "<div class='admin-flag-group'>";
+			html += "<div class='admin-flag-group-label'>" + ModalAdmin.escapeHtml(group) + "</div>";
+			for (let f of groups[group]) {
+				let checked = checkedKeys.includes(f.key) ? " checked" : "";
+				html += "<label class='admin-flag-item'>";
+				html += "<input type='checkbox' class='" + prefix + "-flag-cb' value='" + ModalAdmin.escapeAttr(f.key) + "'" + checked + " />";
+				html += " <span>" + ModalAdmin.escapeHtml(f.label) + "</span>";
+				html += "</label>";
+			}
+			html += "</div>";
+		}
+		html += "</div>";
+		return html;
+	}
+
+	/**
+	 * Reads checked feature flag checkboxes.
+	 * @param {string} prefix - ID prefix matching the renderFeatureFlagCheckboxes call.
+	 * @returns {string[]} Array of checked feature keys.
+	 */
+	static readFeatureFlagCheckboxes(prefix) {
+		let boxes = document.querySelectorAll("." + prefix + "-flag-cb");
+		let checked = [];
+		for (let cb of boxes) {
+			if (cb.checked) checked.push(cb.value);
+		}
+		return checked;
 	}
 }

@@ -1,19 +1,18 @@
 import { Api } from "./Api.mjs";
 
 /**
- * Manages ad loading and display via Google AdSense.
+ * Manages ad loading and display via Monetag.
  * Subscribers with the no_ads feature bypass ad loading entirely.
  */
 export class AdService {
 
 	static #loaded = false;
 	static #showAds = false;
-	static #publisherId = "";
-	static #adSlot = "";
+	static #zoneId = "";
 
 	/**
 	 * Initializes the ad service by checking the server-side config.
-	 * If ads should be shown, loads the AdSense script and injects ad units.
+	 * If ads should be shown, loads the Monetag script and injects ad units.
 	 */
 	static async init() {
 		try {
@@ -21,10 +20,10 @@ export class AdService {
 			if (!config || !config.success) return;
 
 			AdService.#showAds = config.show_ads === true;
-			AdService.#publisherId = config.publisher_id || "";
-			AdService.#adSlot = config.ad_slot || "";
+			AdService.#zoneId = config.zone_id || "";
 
-			if (!AdService.#showAds || !AdService.#publisherId) return;
+			// Don't load if ads are disabled or no zone configured
+			if (!AdService.#showAds || !AdService.#zoneId || AdService.#zoneId === "XXXXXXX") return;
 
 			AdService.#loadScript();
 			AdService.#injectAdUnits();
@@ -35,14 +34,14 @@ export class AdService {
 	}
 
 	/**
-	 * Loads the Google AdSense script tag.
+	 * Loads the Monetag script tag.
 	 */
 	static #loadScript() {
-		if (document.querySelector("script[src*='adsbygoogle']")) return;
+		if (document.querySelector("script[data-zone='" + AdService.#zoneId + "']")) return;
 		let script = document.createElement("script");
 		script.async = true;
-		script.crossOrigin = "anonymous";
-		script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + AdService.#publisherId;
+		script.setAttribute("data-zone", AdService.#zoneId);
+		script.src = "https://alwingulla.com/88/tag.min.js";
 		document.head.appendChild(script);
 	}
 
@@ -57,28 +56,15 @@ export class AdService {
 			container.className = "ad-container";
 			document.body.appendChild(container);
 		}
-
-		let ins = document.createElement("ins");
-		ins.className = "adsbygoogle";
-		ins.style.display = "block";
-		ins.setAttribute("data-ad-client", AdService.#publisherId);
-		ins.setAttribute("data-ad-slot", AdService.#adSlot);
-		ins.setAttribute("data-ad-format", "auto");
-		ins.setAttribute("data-full-width-responsive", "true");
-		container.appendChild(ins);
-
-		try {
-			(window.adsbygoogle = window.adsbygoogle || []).push({});
-		} catch (e) {}
 	}
 
 	/**
-	 * Removes all ad units and the AdSense script (e.g. after user subscribes).
+	 * Removes all ad units and the Monetag script (e.g. after user subscribes).
 	 */
 	static removeAds() {
 		let container = document.getElementById("ad-container");
 		if (container) container.remove();
-		let script = document.querySelector("script[src*='adsbygoogle']");
+		let script = document.querySelector("script[data-zone]");
 		if (script) script.remove();
 		AdService.#loaded = false;
 		AdService.#showAds = false;

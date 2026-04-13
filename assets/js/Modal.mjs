@@ -73,9 +73,10 @@ export class Modal {
 	 * @param {Function|null} onMountFn - Called after content is set in DOM.
 	 * @param {boolean} requiresAuth - Whether the tab requires a logged-in user.
 	 * @param {Function|null} visibleFn - Optional callback returning boolean; tab is hidden when it returns false.
+	 * @param {Function|null} onUnmountFn - Called when switching away from this tab.
 	 */
-	static registerTab(name, label, renderFn, onMountFn = null, requiresAuth = false, visibleFn = null) {
-		Modal.tabs.set(name, { name, label, renderFn, onMountFn, requiresAuth, visibleFn });
+	static registerTab(name, label, renderFn, onMountFn = null, requiresAuth = false, visibleFn = null, onUnmountFn = null) {
+		Modal.tabs.set(name, { name, label, renderFn, onMountFn, requiresAuth, visibleFn, onUnmountFn });
 	}
 
 	/**
@@ -114,6 +115,14 @@ export class Modal {
 	static switchTab(tabName) {
 		let tab = Modal.tabs.get(tabName);
 		if (!tab) return;
+
+		// Notify the previous tab it's being unmounted
+		if (Modal.activeTab && Modal.activeTab !== tabName) {
+			let prevTab = Modal.tabs.get(Modal.activeTab);
+			if (prevTab && typeof prevTab.onUnmountFn === "function") {
+				prevTab.onUnmountFn();
+			}
+		}
 
 		Modal.activeTab = tabName;
 
@@ -170,6 +179,13 @@ export class Modal {
 	 */
 	static close() {
 		if (Modal.element !== null) {
+			// Notify the active tab it's being unmounted
+			if (Modal.activeTab) {
+				let tab = Modal.tabs.get(Modal.activeTab);
+				if (tab && typeof tab.onUnmountFn === "function") {
+					tab.onUnmountFn();
+				}
+			}
 			Modal.element.style.display = "none";
 			Modal.isOpen = false;
 			let elm = document.querySelector("canvas#visualizer");

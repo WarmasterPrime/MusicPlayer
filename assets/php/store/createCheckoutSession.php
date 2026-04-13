@@ -76,7 +76,9 @@ try {
 					"name" => $coupon["name"],
 					"percent_off" => $coupon["percent_off"] !== null ? floatval($coupon["percent_off"]) : null,
 					"amount_off" => $coupon["amount_off"] !== null ? (int)$coupon["amount_off"] : null,
-					"discount" => $couponDiscount
+					"discount" => $couponDiscount,
+					"duration" => $coupon["duration"] ?? "forever",
+					"duration_in_months" => isset($coupon["duration_in_months"]) ? (int)$coupon["duration_in_months"] : null
 				];
 
 				// Increment redemption count
@@ -107,17 +109,28 @@ try {
 	$appUrl = rtrim($baseUrl . $basePath, "/");
 
 	if ($mode === "subscription" && !empty($price["paypal_plan_id"])) {
-		// Create PayPal subscription
-		// Note: PayPal billing plans have fixed pricing, so tax is recorded at
-		// transaction time rather than embedded in the plan.
+		// Create PayPal subscription with optional coupon discount override
 		$successUrl = $appUrl . "/php/store/checkoutSuccess.php?mode=subscription";
 		$cancelUrl = $appUrl . "/php/store/checkoutCancel.php";
+
+		// Build coupon override data if a discount was applied
+		$couponOverride = null;
+		if ($couponDiscount > 0 && $couponInfo) {
+			$couponOverride = [
+				"discount" => $couponDiscount,
+				"original_amount" => $subtotalCents,
+				"currency" => $price["currency"] ?? "usd",
+				"duration" => $couponInfo["duration"],
+				"duration_in_months" => $couponInfo["duration_in_months"]
+			];
+		}
 
 		$result = PayPalCheckout::createSubscription(
 			$price["paypal_plan_id"],
 			$successUrl,
 			$cancelUrl,
-			$email
+			$email,
+			$couponOverride
 		);
 
 		if (isset($result["error"])) {

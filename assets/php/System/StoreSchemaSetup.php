@@ -74,6 +74,9 @@ class StoreSchemaSetup {
 		$results[] = $this->createAccountsFontOptions();
 		$results[] = $this->createAccountsFeatureFlags();
 		$results[] = $this->extendAuthority();
+		$results[] = $this->createAccountsChatConversations();
+		$results[] = $this->createAccountsChatMessages();
+		$results[] = $this->createAccountsChatTyping();
 		return $results;
 	}
 
@@ -237,6 +240,12 @@ class StoreSchemaSetup {
 			$result["actions"][] = "Created table";
 		} else {
 			$result["actions"][] = "Table already exists";
+		}
+
+		// Add feature_flags column if missing (stores comma-separated FeatureGate keys)
+		if (!$this->columnExists($pdo, "products", "feature_flags")) {
+			$pdo->exec("ALTER TABLE `products` ADD COLUMN `feature_flags` TEXT DEFAULT NULL AFTER `metadata`");
+			$result["actions"][] = "Added feature_flags column";
 		}
 
 		return $result;
@@ -459,12 +468,114 @@ class StoreSchemaSetup {
 					'ClientViewPublic','ClientViewUnlisted','ClientViewPrivate','ClientViewOwn',
 					'ClientModifyPublic','ClientModifyUnlisted','ClientModifyPrivate','ClientModifyOwn',
 					'ServerViewPublic','ServerViewUnlisted','ServerViewPrivate',
-					'StoreAdmin','UserAdmin'
+					'StoreAdmin','UserAdmin','Moderator'
 				) NOT NULL DEFAULT 'ClientViewPublic,ClientViewOwn,ClientModifyOwn,ServerViewPublic'
 			");
-			$result["actions"][] = "Added StoreAdmin and UserAdmin to authority SET";
+			$result["actions"][] = "Added StoreAdmin, UserAdmin, and Moderator to authority SET";
+		} elseif ($colType && strpos($colType, "Moderator") === false) {
+			$pdo->exec("
+				ALTER TABLE `users` MODIFY COLUMN `authority` SET(
+					'None',
+					'DbSelect','DbInsert','DbAlter',
+					'ClientViewPublic','ClientViewUnlisted','ClientViewPrivate','ClientViewOwn',
+					'ClientModifyPublic','ClientModifyUnlisted','ClientModifyPrivate','ClientModifyOwn',
+					'ServerViewPublic','ServerViewUnlisted','ServerViewPrivate',
+					'StoreAdmin','UserAdmin','Moderator'
+				) NOT NULL DEFAULT 'ClientViewPublic,ClientViewOwn,ClientModifyOwn,ServerViewPublic'
+			");
+			$result["actions"][] = "Added Moderator to authority SET";
 		} else {
-			$result["actions"][] = "Authority flags already include StoreAdmin";
+			$result["actions"][] = "Authority flags already include StoreAdmin and Moderator";
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Creates accounts.chat_conversations — live chat/support conversation threads.
+	 */
+	private function createAccountsChatConversations(): array {
+		$result = ["table" => "accounts.chat_conversations", "actions" => []];
+		$pdo = $this->connect("accounts");
+
+		if (!$this->tableExists($pdo, "chat_conversations")) {
+			$pdo->exec("
+				CREATE TABLE `chat_conversations` (
+					`id` CHAR(36) NOT NULL,
+					`user_id` CHAR(36) NOT NULL,
+					`assigned_to` CHAR(36) DEFAULT NULL,
+					`status` ENUM('open','closed') NOT NULL DEFAULT 'open',
+					`last_activity` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+					`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					PRIMARY KEY (`id`),
+					KEY `idx_chat_user` (`user_id`),
+					KEY `idx_chat_assigned` (`assigned_to`),
+					KEY `idx_chat_status` (`status`),
+					KEY `idx_chat_activity` (`last_activity`)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+			");
+			$result["actions"][] = "Created table";
+		} else {
+			$result["actions"][] = "Table already exists";
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Creates accounts.chat_messages — individual messages within conversations.
+	 */
+	private function createAccountsChatMessages(): array {
+		$result = ["table" => "accounts.chat_messages", "actions" => []];
+		$pdo = $this->connect("accounts");
+
+		if (!$this->tableExists($pdo, "chat_messages")) {
+			$pdo->exec("
+				CREATE TABLE `chat_messages` (
+					`id` CHAR(36) NOT NULL,
+					`conversation_id` CHAR(36) NOT NULL,
+					`sender_id` CHAR(36) NOT NULL,
+					`message` TEXT DEFAULT NULL,
+					`is_typing` TINYINT(1) NOT NULL DEFAULT 0,
+					`has_attachment` TINYINT(1) NOT NULL DEFAULT 0,
+					`attachment_name` VARCHAR(255) DEFAULT NULL,
+					`attachment_path` VARCHAR(500) DEFAULT NULL,
+					`attachment_size` INT UNSIGNED DEFAULT NULL,
+					`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					PRIMARY KEY (`id`),
+					KEY `idx_msg_convo` (`conversation_id`),
+					KEY `idx_msg_sender` (`sender_id`),
+					KEY `idx_msg_created` (`created_at`)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+			");
+			$result["actions"][] = "Created table";
+		} else {
+			$result["actions"][] = "Table already exists";
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Creates accounts.chat_typing — real-time typing indicator state.
+	 */
+	private function createAccountsChatTyping(): array {
+		$result = ["table" => "accounts.chat_typing", "actions" => []];
+		$pdo = $this->connect("accounts");
+
+		if (!$this->tableExists($pdo, "chat_typing")) {
+			$pdo->exec("
+				CREATE TABLE `chat_typing` (
+					`conversation_id` CHAR(36) NOT NULL,
+					`user_id` CHAR(36) NOT NULL,
+					`content` TEXT DEFAULT NULL,
+					`updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+					PRIMARY KEY (`conversation_id`, `user_id`)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+			");
+			$result["actions"][] = "Created table";
+		} else {
+			$result["actions"][] = "Table already exists";
 		}
 
 		return $result;

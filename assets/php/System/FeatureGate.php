@@ -42,8 +42,8 @@ class FeatureGate {
 
 		$feature = self::FEATURES[$featureKey];
 
-		// Check if user has an active subscription
-		if (self::hasActiveSubscription($userId)) {
+		// Check if user has an active subscription that includes this feature
+		if (self::hasSubscriptionFeature($userId, $featureKey)) {
 			return ["allowed" => true, "message" => "Active subscription.", "limit" => null, "current" => null];
 		}
 
@@ -105,7 +105,51 @@ class FeatureGate {
 	}
 
 	/**
-	 * Checks if a user has an active subscription.
+	 * Checks if a user has an active subscription that includes the given feature.
+	 * Traces: subscription → paypal_plan_id → prices.product_id → products.feature_flags.
+	 * If a product has no feature_flags set (NULL/empty), all paid features are granted
+	 * for backward compatibility.
+	 *
+	 * @param string $userId
+	 * @param string $featureKey
+	 * @return bool
+	 */
+	private static function hasSubscriptionFeature(string $userId, string $featureKey): bool {
+		try {
+			$pdo = Database::connect("store");
+			$stmt = $pdo->prepare("
+				SELECT p.`feature_flags`
+				FROM `subscriptions` s
+				JOIN `prices` pr ON s.`paypal_plan_id` = pr.`paypal_plan_id`
+				JOIN `products` p ON pr.`product_id` = p.`id`
+				WHERE s.`user_id` = ? AND s.`status` IN ('active', 'trialing')
+			");
+			$stmt->execute([$userId]);
+			$rows = $stmt->fetchAll();
+
+			if (empty($rows)) {
+				return false;
+			}
+
+			foreach ($rows as $row) {
+				$flags = $row["feature_flags"];
+				// Backward compat: if no flags defined, grant all paid features
+				if ($flags === null || trim($flags) === "") {
+					return true;
+				}
+				$flagList = array_map("trim", explode(",", $flags));
+				if (in_array($featureKey, $flagList, true)) {
+					return true;
+				}
+			}
+			return false;
+		} catch (PDOException $e) {
+			return false;
+		}
+	}
+
+	/**
+	 * Checks if a user has any active subscription.
 	 * @param string $userId
 	 * @return bool
 	 */
@@ -140,6 +184,34 @@ class FeatureGate {
 			return (int)$stmt->fetchColumn() > 0;
 		} catch (PDOException $e) {
 			return false;
+		}
+	}
+
+	/**
+	 * Returns all available feature keys.
+	 * @return string[]
+	 */
+	public static function getFeatureKeys(): array {
+		return array_keys(self::FEATURES);
+	}
+
+	/**
+	 * Gets the feature flags for a given product.
+	 * @param string $productId
+	 * @return string[] Array of feature keys, or empty if none set.
+	 */
+	public static function getProductFeatureFlags(string $productId): array {
+		try {
+			$pdo = Database::connect("store");
+			$stmt = $pdo->prepare("SELECT `feature_flags` FROM `products` WHERE `id` = ?");
+			$stmt->execute([$productId]);
+			$flags = $stmt->fetchColumn();
+			if (!$flags || trim($flags) === "") {
+				return [];
+			}
+			return array_map("trim", explode(",", $flags));
+		} catch (PDOException $e) {
+			return [];
 		}
 	}
 

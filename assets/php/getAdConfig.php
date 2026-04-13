@@ -10,13 +10,12 @@ require_once __DIR__ . "/System/FeatureGate.php";
 
 header("Content-Type: application/json");
 
-$iniPath = "A:/Server/keys/adsense.ini";
+$iniPath = "A:/Server/keys/monetag.ini";
 $config = file_exists($iniPath) ? parse_ini_file($iniPath, true) : [];
 $env = "development";
 $section = $config[$env] ?? $config["production"] ?? [];
 
-$publisherId = $section["publisher_id"] ?? "";
-$adSlot = $section["ad_slot"] ?? "";
+$zoneId = $section["zone_id"] ?? "";
 
 $showAds = true;
 
@@ -33,6 +32,6 @@ if (isLoggedIn()) {
 echo json_encode([
 	"success" => true,
 	"show_ads" => $showAds,
-	"publisher_id" => $showAds ? $publisherId : "",
-	"ad_slot" => $showAds ? $adSlot : ""
+	"provider" => "monetag",
+	"zone_id" => $showAds ? $zoneId : ""
 ]);

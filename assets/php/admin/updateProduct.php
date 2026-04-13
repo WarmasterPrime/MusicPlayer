@@ -33,6 +33,12 @@ if (isset($input["description"])) $fields["description"] = $input["description"]
 if (isset($input["active"])) $fields["active"] = (bool)$input["active"];
 if (isset($input["metadata"])) $fields["metadata"] = $input["metadata"];
 
+// Feature flags: array of feature keys → comma-separated string (empty array = clear all flags)
+if (isset($input["feature_flags"]) && is_array($input["feature_flags"])) {
+	$flags = array_filter($input["feature_flags"], "is_string");
+	$fields["feature_flags"] = count($flags) > 0 ? implode(",", $flags) : null;
+}
+
 if (empty($fields)) {
 	echo json_encode(["success" => false, "message" => "No fields to update."]);
 	exit;
