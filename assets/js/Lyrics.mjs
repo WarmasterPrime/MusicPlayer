@@ -2,119 +2,148 @@ import VJson from "./System/Data/VJson.mjs";
 
 /**
  * Manages song lyrics with timestamp-based lookup.
+ *
+ * Supported storage formats (as returned by getLyrics.php / saveLyrics.php):
+ *   1. Array   — [{timestamp: number, text: string}, ...]   (canonical editor format)
+ *   2. Object  — {"0": "text", "1.5": "text", ...}          (legacy flat-map format)
+ *   3. LRC     — raw "[mm:ss.xx]lyric\n..." string           (uploaded .lrc files)
+ *
+ * All formats are normalised at construction time into the array format so that
+ * getAtTime() always operates on a consistent structure.
  */
 export class Lyrics {
-	
+
 	/**
-	 * Creates a new Lyrics instance from a lyrics JSON object.
-	 * @param {object} lyricObject - The raw lyrics object with timestamp keys.
+	 * Creates a new Lyrics instance from a raw lyrics value.
+	 * @param {Array|object|string} lyricObject - Raw value from the server.
 	 */
 	constructor(lyricObject) {
 		this.raw = lyricObject;
 		this.format = Lyrics.getType(lyricObject);
-		this.value = Lyrics.normalize(this.raw);
+		this.value = Lyrics.normalize(this.raw, this.format);
 	}
-	
+
+	// ─── Public API ────────────────────────────────────────────────────────────
+
 	/**
-	 * Gets the lyric text at the given time position.
-	 * @param {number|string} time - The current time in milliseconds.
-	 * @returns {string}
+	 * Returns the lyric text that should be displayed at the given time.
+	 * @param {number|string} time - Current position in milliseconds (number or numeric string).
+	 * @returns {string|null}
 	 */
 	getAtTime(time) {
-		if(this.format==="lrc")
-			return Lyrics.syncLyric(this.value, time);
-		let key;
-		let list = Object.keys(this.value);
-		time = parseFloat(time);
-		for (let i = 0; i < list.length; i++) {
-			key = list[i];
-			if (time >= key && time < list[(i + 1 < list.length - 1) ? i + 1 : list.length - 1])
-				return this.value[key];
-			else if (i + 1 > list.length - 1 && time >= key)
-				return this.value[list[list.length - 1]];
-		}
-		return "";
+		return Lyrics.syncLyric(this.value, parseFloat(time));
 	}
-	
+
+	// ─── Static helpers ────────────────────────────────────────────────────────
+
 	/**
-	 * Gets the lyric object at the given time position.
-	 * @param {*} lyrics An array of the lyrics.
-	 * @param {number} time The current time in seconds.
-	 * @returns {object|null}
+	 * Finds the lyric entry whose timestamp is closest to (but not exceeding) time.
+	 * @param {Array<{timestamp:number,text:string}>} lyrics
+	 * @param {number} time - Seconds.
+	 * @returns {string|null}
 	 */
 	static syncLyric(lyrics, time) {
-		const scores = [];
-		lyrics.forEach(lyric => {
-			const score = time-lyric.timestamp;
-			if(score>=0)
-				scores.push(score);
-		});
-		if(scores.length===0)
-			return null;
-		return lyrics[scores.indexOf(Math.min(...scores))].text;
+		if (!Array.isArray(lyrics) || lyrics.length === 0) return null;
+		let best = null;
+		let bestDiff = Infinity;
+		for (let i = 0; i < lyrics.length; i++) {
+			let diff = time - lyrics[i].timestamp;
+			if (diff >= 0 && diff < bestDiff) {
+				bestDiff = diff;
+				best = lyrics[i].text;
+			}
+		}
+		return best;
 	}
+
 	/**
-	 * 
-	 * @param {string} lrcString The raw LRC string containing timestamped lyrics, where each line is in the format "[mm:ss.xx]lyric text".
-	 * @returns 
+	 * Parses a raw LRC string into the canonical array format.
+	 * Timestamps are converted to **milliseconds** to match the rest of the
+	 * system (which stores and compares using `currentTime * 1000`).
+	 * Handles "[mm:ss.xx]" and "[mm:ss]" timestamps.
+	 * @param {string} lrcString
+	 * @returns {Array<{timestamp:number,text:string}>}
 	 */
 	static fromLrc(lrcString) {
-		const pattern = /^\[(?<timestamp>\d{2}:\d{2}(.\d{2})?)\](?<text>.*)/;
-		const lines = lrcString.split("\n");
+		const pattern = /^\[(?<timestamp>\d{1,2}:\d{2}(?:[.:]\d{1,3})?)\](?<text>.*)/;
+		const lines = lrcString.split(/\r?\n/);
 		const output = [];
 		lines.forEach(line => {
 			const match = line.match(pattern);
-			if(match===null)
-				return;
-			const {time, text} = match.groups;
-			output.push({
-				timestamp: Lyrics.parseTime(time),
-				text: text.trim()
-			});
+			if (!match) return;
+			const { timestamp, text } = match.groups;
+			const secs = Lyrics.parseTime(timestamp);
+			if (!isNaN(secs)) {
+				// Convert seconds → milliseconds to stay consistent with the
+				// JSON-editor format and playLyrics() which passes (currentTime * 1000).
+				output.push({ timestamp: Math.round(secs * 1000), text: text.trim() });
+			}
 		});
-		return output;
+		return output.sort((a, b) => a.timestamp - b.timestamp);
 	}
+
 	/**
-	 * Parses a time string in the format "mm:ss.xx" into seconds as a float.
-	 * @param {string} time The time string in the format "mm:ss.xx" where mm is minutes, ss is seconds, and xx is optional hundredths of a second.
-	 * @returns {number} The time in seconds as a float.
+	 * Parses a time string "mm:ss.xx" or "mm:ss" into seconds.
+	 * @param {string} time
+	 * @returns {number} Seconds as float, or NaN on parse failure.
 	 */
 	static parseTime(time) {
-		const minSec = time.split(":");
-		const min = parseInt(minSec[0]) * 60;
-		const sec = parseFloat(minSec[1]);
-		return min+sec;
+		const parts = time.split(":");
+		if (parts.length < 2) return NaN;
+		const min = parseInt(parts[0], 10);
+		const sec = parseFloat(parts[1].replace(",", "."));
+		return min * 60 + sec;
 	}
+
 	/**
-	 * Determines the format type of the given lyrics object.
-	 * @param {*} obj The JSON object obtained from the database that may or may not represent a raw JSON-lyrics object or an LRC lyrics object.
-	 * @returns {boolean}
+	 * Detects the storage format of the raw lyrics value.
+	 * @param {*} obj
+	 * @returns {"array"|"lrc"|"object"}
 	 */
 	static getType(obj) {
-		return typeof obj === "object" && VJson.isSerializable(obj) && Lyrics.hasProperty(obj, "format") ? obj.format : "json";
+		if (typeof obj === "string") return "lrc";
+		if (Array.isArray(obj)) return "array";
+		if (obj && typeof obj === "object") {
+			// Legacy flat-map: {"0": "text", ...}
+			return "object";
+		}
+		return "array";
 	}
+
 	/**
-	 * Determines if the given object has the specified property, accounting for various ways properties can be defined in JavaScript objects.
-	 * @param {*} obj The object to analyze.
-	 * @param {*} prop THe property name to look for.
+	 * Determines if the given object has the specified property.
+	 * @param {*} obj
+	 * @param {*} prop
 	 * @returns {boolean}
 	 */
 	static hasProperty(obj, prop) {
 		return obj && typeof obj === "object" && (Object.prototype.hasOwnProperty.call(obj, prop) || Object.keys(obj).includes(prop));
 	}
-	
+
 	/**
-	 * Normalizes the lyrics object so all keys are parsed as floats.
-	 * @param {object} obj - The raw lyrics object.
-	 * @returns {object}
+	 * Normalises any supported format into Array<{timestamp, text}>.
+	 * @param {*} obj
+	 * @param {string} format
+	 * @returns {Array<{timestamp:number,text:string}>}
 	 */
-	static normalize(obj) {
-		let key, value;
-		let res = {};
-		if (obj && typeof obj === "object") {
-			for ([key, value] of Object.entries(obj))
-				res[parseFloat(key)] = value;
+	static normalize(obj, format) {
+		if (format === "lrc") {
+			return Lyrics.fromLrc(typeof obj === "string" ? obj : "");
 		}
-		return res;
+		if (format === "array") {
+			if (!Array.isArray(obj)) return [];
+			return obj
+				.filter(e => e && typeof e === "object" && typeof e.timestamp === "number")
+				.map(e => ({ timestamp: e.timestamp, text: String(e.text ?? "") }))
+				.sort((a, b) => a.timestamp - b.timestamp);
+		}
+		// Legacy flat-map object {"0": "text", ...}
+		if (obj && typeof obj === "object") {
+			return Object.entries(obj)
+				.map(([k, v]) => ({ timestamp: parseFloat(k), text: String(v) }))
+				.filter(e => !isNaN(e.timestamp))
+				.sort((a, b) => a.timestamp - b.timestamp);
+		}
+		return [];
 	}
 }

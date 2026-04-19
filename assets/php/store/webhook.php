@@ -33,11 +33,11 @@ foreach ($_SERVER as $key => $value) {
 
 // Load webhook ID from config
 $keys = PayPal::loadKeys();
-$webhookId = $keys["development"]["webhook_id"] ?? $keys["webhook"]["id"] ?? "";
+$webhookId = $keys[PayPal::defaultEnv()]["webhook_id"] ?? $keys["webhook"]["id"] ?? "";
 
 if (strlen($webhookId) > 0 && !empty($headers)) {
 	// Verify signature
-	PayPalApi::init("development");
+	PayPalApi::init(PayPal::defaultEnv());
 	$valid = PayPalWebhook::verify($headers, $payload, $webhookId);
 	if (!$valid) {
 		http_response_code(400);
@@ -57,7 +57,7 @@ if ($event === null) {
 
 // Process the event
 try {
-	PayPalApi::init("development");
+	PayPalApi::init(PayPal::defaultEnv());
 	$result = PayPalWebhook::process($event);
 	http_response_code(200);
 	echo json_encode($result);

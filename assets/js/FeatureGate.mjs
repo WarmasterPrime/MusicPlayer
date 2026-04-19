@@ -11,15 +11,25 @@ export class FeatureGate {
 	static features = {};
 	static tier = "free";
 	static loaded = false;
+	/** @type {Promise|null} The in-flight load promise so concurrent callers can await it. */
+	static #loadPromise = null;
 
 	/**
 	 * Fetches subscription status from the server and caches it.
+	 * Safe to call multiple times — concurrent callers share the same promise.
 	 */
-	static async load() {
+	static load() {
+		if (FeatureGate.#loadPromise) return FeatureGate.#loadPromise;
+		FeatureGate.#loadPromise = FeatureGate.#doLoad();
+		return FeatureGate.#loadPromise;
+	}
+
+	static async #doLoad() {
 		if (!Session.isLoggedIn()) {
 			FeatureGate.tier = "free";
 			FeatureGate.features = {};
 			FeatureGate.loaded = true;
+			FeatureGate.#loadPromise = null;
 			return;
 		}
 		try {
@@ -29,18 +39,32 @@ export class FeatureGate {
 				FeatureGate.features = result.features || {};
 			}
 		} catch (e) {
-			// Silently fail — default to free tier
+			console.warn("[FeatureGate] Failed to load subscription status:", e);
 		}
 		FeatureGate.loaded = true;
+		FeatureGate.#loadPromise = null;
+	}
+
+	/**
+	 * Ensures features are loaded before checking. Use this in async contexts.
+	 */
+	static async ensureLoaded() {
+		if (!FeatureGate.loaded) {
+			await FeatureGate.load();
+		}
 	}
 
 	/**
 	 * Checks if a feature is allowed for the current user.
+	 * Paid subscribers get all features. Users with manual grants ("granted" tier)
+	 * must check per-feature status. Free users check per-feature status.
 	 * @param {string} featureKey
 	 * @returns {boolean}
 	 */
 	static check(featureKey) {
-		if (FeatureGate.tier !== "free") return true;
+		// Paid subscribers get all features
+		if (FeatureGate.tier === "paid") return true;
+		// For "granted" tier (manual grants) and "free" tier, check per-feature status
 		let feature = FeatureGate.features[featureKey];
 		if (!feature) return false;
 		return feature.allowed === true;

@@ -7,6 +7,7 @@ import { ServerResponse } from "./lib/ServerResponse.mjs";
 import { Player } from "./Player.mjs";
 import { AudioLibrary } from "./AudioLibrary.mjs";
 import { Visual, newBGState, setNewBGState } from "./Visualizer.mjs";
+import { Visualizer3D } from "./Visualizer3D.mjs";
 import { ProgressBar } from "./ProgressBar.mjs";
 import { Modal } from "./Modal.mjs";
 import { ModalSongList } from "./ModalSongList.mjs";
@@ -34,6 +35,7 @@ import { AdService } from "./AdService.mjs";
 import { ModalChat } from "./ModalChat.mjs";
 import { ChatService } from "./services/ChatService.mjs";
 import { installCanvas, setup as setupBG, moveBG } from "./ext/Main.mjs";
+import { Tutorial } from "./Tutorial.mjs";
 
 // Expose classes on window for backward compatibility
 window.Visual = Visual;
@@ -69,6 +71,7 @@ window.ModalLegal = ModalLegal;
 window.ModalLayoutDesigner = ModalLayoutDesigner;
 window.ModalChat = ModalChat;
 window.ChatService = ChatService;
+window.Tutorial = Tutorial;
 
 /**
  * Saved color state for fade toggle.
@@ -250,7 +253,7 @@ function handleAuthCallback() {
 /**
  * Initializes the application.
  */
-function ini() {
+async function ini() {
 	let obj = UrlParams.GetParams();
 	applyThemeFromStorage();
 	registerTabs();
@@ -268,8 +271,11 @@ function ini() {
 		UrlParams.removeParam("view");
 	}
 
-	// Apply active layout on load
-	ModalLayoutDesigner.applyActiveLayout();
+	// Apply layout: URL-shared layout takes priority over the user's own active layout.
+	let sharedLayoutApplied = await ModalLayoutDesigner.checkUrlLayout();
+	if (!sharedLayoutApplied) {
+		ModalLayoutDesigner.applyActiveLayout();
+	}
 
 	// Initialize chat service (visibility-aware polling)
 	ChatService.init();
@@ -318,13 +324,15 @@ function ini() {
 			// Load custom background image (or go transparent for OBS)
 			loadUserBackground();
 		} else {
-			// Not logged in — show ads, OBS gets transparent
+			// Not logged in — show ads, OBS gets transparent, offer tutorial
 			AdService.init();
 			let isOBS = window.navigator.userAgent.indexOf("OBS/") !== -1;
 			if (isOBS) {
 				document.getElementById("bg-hide-opt").checked = true;
 				toggleBg(document.getElementById("bg-hide-opt"));
 			}
+			// Show first-time tutorial after a short delay so the page settles
+			setTimeout(function () { Tutorial.start(); }, 800);
 		}
 	});
 
@@ -481,6 +489,30 @@ function checkSong() {
 			Visual.currentDesign = obj["design"];
 			let designSelect = document.getElementById("design");
 			if (designSelect) designSelect.value = obj["design"];
+		}
+
+		// Camera motion mode (3D designs). Also syncs the legacy
+		// Visualizer3D.autoRotate flag so older code paths keep working.
+		if (obj["camMode"] !== undefined) {
+			Visualizer3D.cameraMode = obj["camMode"];
+			Visualizer3D.autoRotate = (obj["camMode"] !== "static");
+		}
+
+		// Material mode (solid / wireframe / translucent) persists across reloads.
+		if (obj["matMode"] !== undefined) {
+			try { Visualizer3D.setMaterialMode(obj["matMode"]); } catch (e) {}
+		}
+
+		// Gelatin shape (sphere / cube / pyramid) persists across reloads.
+		if (obj["gelatinShape"] !== undefined) {
+			Visualizer3D.gelatinShape = obj["gelatinShape"];
+		}
+
+		// Lyric Particles count (500–30000) persists across reloads so the
+		// user's perf/density tradeoff survives a refresh.
+		if (obj["lyricCount"] !== undefined) {
+			let lc = parseInt(obj["lyricCount"], 10);
+			if (!isNaN(lc)) Visualizer3D.lyricParticleCount = lc;
 		}
 
 		if (obj["fillPolygon"] !== undefined) {

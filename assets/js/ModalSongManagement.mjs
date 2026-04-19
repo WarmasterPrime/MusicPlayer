@@ -175,6 +175,14 @@ export class ModalSongManagement {
 		html += "<span class='edit-lyrics-hint'>Open the lyrics editor to add or modify timed lyrics for this song.</span>";
 		html += "<button class='modal-form-btn edit-lyrics-btn' id='edit-lyrics-btn'>Edit Lyrics</button>";
 		html += "</div>";
+		html += "<div class='edit-lyrics-row' style='margin-top:8px;'>";
+		html += "<span class='edit-lyrics-hint' style='font-size:12px;'>Or upload a .lrc or .json lyrics file directly:</span>";
+		html += "<div style='display:flex;gap:8px;align-items:center;margin-top:4px;'>";
+		html += "<input type='file' id='lyrics-file-input' accept='.lrc,.json,.txt' style='flex:1;font-size:12px;color:rgba(255,255,255,0.7);' />";
+		html += "<button class='modal-form-btn' id='lyrics-file-upload-btn' style='width:auto;font-size:12px;padding:4px 12px;'>Upload</button>";
+		html += "</div>";
+		html += "<div id='lyrics-upload-status' style='font-size:11px;margin-top:4px;color:rgba(255,255,255,0.5);'></div>";
+		html += "</div>";
 		html += "</div>";
 
 		// --- Save ---
@@ -258,6 +266,60 @@ export class ModalSongManagement {
 				let songId = ModalSongManagement.editingSongId;
 				if (songId) {
 					ModalLyricsEditor.open(songId);
+				}
+			});
+		}
+
+		// Lyrics file upload
+		let uploadBtn = document.getElementById("lyrics-file-upload-btn");
+		if (uploadBtn) {
+			uploadBtn.addEventListener("click", async function () {
+				let fileInput = document.getElementById("lyrics-file-input");
+				let statusEl  = document.getElementById("lyrics-upload-status");
+				if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+					if (statusEl) statusEl.textContent = "Please select a file first.";
+					return;
+				}
+				let file = fileInput.files[0];
+				let name = file.name.toLowerCase();
+				let songId = ModalSongManagement.editingSongId;
+				if (!songId) return;
+
+				if (statusEl) statusEl.textContent = "Reading file…";
+
+				try {
+					let text = await file.text();
+					let payload = { song_id: songId };
+
+					if (name.endsWith(".json")) {
+						// JSON lyrics — parse and validate format
+						let parsed = JSON.parse(text);
+						if (Array.isArray(parsed)) {
+							payload.lyrics_json = parsed;
+						} else {
+							// Legacy flat object {"0":"text",...} — convert to array
+							payload.lyrics_json = Object.entries(parsed).map(([k, v]) => ({
+								timestamp: parseFloat(k), text: String(v)
+							})).filter(e => !isNaN(e.timestamp));
+						}
+					} else {
+						// .lrc or plain text — send raw for server storage
+						payload.lyrics_raw = text;
+					}
+
+					let result = await Api.send("assets/php/saveLyrics.php", payload);
+					if (statusEl) {
+						statusEl.textContent = result.success
+							? "Lyrics uploaded successfully."
+							: ("Upload failed: " + (result.message || "Unknown error."));
+						statusEl.style.color = result.success ? "rgba(100,255,150,0.8)" : "rgba(255,100,100,0.8)";
+					}
+					if (result.success) fileInput.value = "";
+				} catch (e) {
+					if (statusEl) {
+						statusEl.textContent = "Error reading or uploading file: " + e.message;
+						statusEl.style.color = "rgba(255,100,100,0.8)";
+					}
 				}
 			});
 		}

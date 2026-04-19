@@ -7,6 +7,7 @@
 
 require_once __DIR__ . "/../session.php";
 require_once __DIR__ . "/../System/Database.php";
+require_once __DIR__ . "/../System/Payments/PayPal.php";
 require_once __DIR__ . "/../System/Payments/PayPalApi.php";
 
 header("Content-Type: application/json");
@@ -31,7 +32,7 @@ if (empty($captureId)) {
 }
 
 try {
-	PayPalApi::init("development");
+	PayPalApi::init(PayPal::defaultEnv());
 
 	// Build refund request
 	$refundData = [];

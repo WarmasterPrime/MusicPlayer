@@ -34,16 +34,31 @@ export class ModalLyricsEditor {
 			let result = await Api.send("assets/php/getLyrics.php", { "song_id": songId });
 			if (result) {
 				let lyrics = result;
-				if (typeof lyrics === "string")
-					lyrics = JSON.parse(lyrics);
+				if (typeof lyrics === "string") {
+					// Try JSON first; fall back to treating as raw LRC
+					try { lyrics = JSON.parse(lyrics); } catch (_) {}
+				}
 				if (Array.isArray(lyrics)) {
+					// Canonical format: [{timestamp, text}, ...]
 					ModalLyricsEditor.rows = lyrics.map(function (entry) {
-						return { timestamp: entry.timestamp ?? 0, text: entry.text ?? "" };
+						return { timestamp: parseFloat(entry.timestamp ?? 0), text: String(entry.text ?? "") };
 					});
+				} else if (typeof lyrics === "string") {
+					// Raw LRC string — parse via Lyrics helper then import as rows
+					// Import Lyrics lazily to avoid circular dependency issues
+					let { Lyrics } = await import("./Lyrics.mjs");
+					let parsed = Lyrics.fromLrc(lyrics);
+					// Editor stores timestamps in ms for backward compat display,
+					// but the canonical format uses seconds — keep seconds here.
+					ModalLyricsEditor.rows = parsed;
+				} else if (lyrics && typeof lyrics === "object") {
+					// Legacy flat-map: {"0": "text", "1.5": "text", ...}
+					ModalLyricsEditor.rows = Object.entries(lyrics).map(function ([k, v]) {
+						return { timestamp: parseFloat(k), text: String(v) };
+					}).filter(function (e) { return !isNaN(e.timestamp); })
+					  .sort(function (a, b) { return a.timestamp - b.timestamp; });
 				} else {
-					ModalLyricsEditor.rows = lyrics.map(function(key, value) {
-						return {timestamp: key, text: value};
-					});
+					ModalLyricsEditor.rows = [];
 				}
 			} else {
 				ModalLyricsEditor.rows = [];

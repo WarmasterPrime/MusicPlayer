@@ -14,35 +14,47 @@ $user = getCurrentUser();
 $input = json_decode(file_get_contents("php://input"), true);
 $songId = $input["song_id"] ?? "";
 $lyricsJson = $input["lyrics_json"] ?? null;
-$language = $input["language"] ?? "en";
+$lyricsRaw  = $input["lyrics_raw"]  ?? null;   // Raw LRC string from file upload
+$language   = $input["language"] ?? "en";
 
 if (strlen($songId) === 0) {
 	echo json_encode(["success" => false, "message" => "Song ID is required."]);
 	exit;
 }
 
-if (!is_array($lyricsJson) && !is_object($lyricsJson)) {
+$lyricsStr = null;
+
+if (is_string($lyricsRaw) && strlen(trim($lyricsRaw)) > 0) {
+	// Raw LRC / plain-text file — store as-is (JS Lyrics.fromLrc() handles parsing)
+	// Basic sanity check: must contain at least one LRC timestamp pattern
+	if (preg_match('/\[\d{1,2}:\d{2}/', $lyricsRaw)) {
+		$lyricsStr = $lyricsRaw; // stored directly, not JSON-encoded
+	} else {
+		// Treat as pre-formatted text; still store raw
+		$lyricsStr = $lyricsRaw;
+	}
+} elseif (is_array($lyricsJson) || is_object($lyricsJson)) {
+	// JSON array [{timestamp, text}, ...] from the editor
+	$filtered = [];
+	if (is_array($lyricsJson)) {
+		foreach ($lyricsJson as $entry) {
+			if (isset($entry["timestamp"]) && isset($entry["text"])) {
+				$ts   = $entry["timestamp"];
+				$text = trim($entry["text"]);
+				if (is_numeric($ts) && $ts >= 0 && strlen($text) > 0) {
+					$filtered[] = ["timestamp" => (float)$ts, "text" => $text];
+				}
+			}
+		}
+	}
+	$lyricsStr = json_encode($filtered);
+} else {
 	echo json_encode(["success" => false, "message" => "Invalid lyrics data."]);
 	exit;
 }
 
-// Validate and filter lyrics entries
-$filtered = [];
-if (is_array($lyricsJson)) {
-	foreach ($lyricsJson as $entry) {
-		if (isset($entry["timestamp"]) && isset($entry["text"])) {
-			$ts = $entry["timestamp"];
-			$text = trim($entry["text"]);
-			if (is_numeric($ts) && $ts >= 0 && strlen($text) > 0) {
-				$filtered[] = ["timestamp" => (float)$ts, "text" => $text];
-			}
-		}
-	}
-}
-
 try {
 	$pdo = Database::connect("musicplayer");
-	$lyricsStr = json_encode($filtered);
 
 	// Upsert: check if lyrics exist for this song
 	$stmt = $pdo->prepare("SELECT `id` FROM `lyrics` WHERE `song_id` = ? AND `language` = ?");

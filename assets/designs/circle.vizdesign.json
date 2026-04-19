@@ -1,0 +1,92 @@
+{
+  "name": "circle",
+  "label": "Circle",
+  "version": 1,
+  "type": "2d",
+  "description": "Frequency bars radiate outward from a central circle",
+  "audio": {
+    "toff": 150,
+    "bassRange": 0.03,
+    "bassNormDivisor": 150
+  },
+  "config": {},
+  "particles": null,
+  "subroutines": {},
+  "render": {
+    "steps": [
+      { "type": "let", "name": "centerX", "expr": "=width / 2" },
+      { "type": "let", "name": "centerY", "expr": "=height * 0.6" },
+      { "type": "let", "name": "minDim", "expr": "=min(width, height)" },
+      { "type": "let", "name": "baseRadius", "expr": "=minDim * 0.15" },
+      { "type": "let", "name": "maxBarLen", "expr": "=minDim * 0.35" },
+      { "type": "let", "name": "count", "expr": "=binCount" },
+      { "type": "let", "name": "angleStep", "expr": "=TWO_PI / count" },
+      { "type": "let", "name": "circumference", "expr": "=TWO_PI * baseRadius" },
+      { "type": "let", "name": "bw", "expr": "=max(1, (circumference / count) * 0.8)" },
+      { "type": "setStyle", "prop": "lineWidth", "expr": "=bw" },
+      { "type": "setStyle", "prop": "lineCap", "expr": "='round'" },
+      { "type": "initArray", "array": "outerPts" },
+      {
+        "type": "loop",
+        "var": "o",
+        "from": 0,
+        "to": "=count",
+        "direction": "up",
+        "body": [
+          { "type": "let", "name": "y", "expr": "=max(0, ((data[o] + toff) / barHeight) * maxHeight)" },
+          { "type": "let", "name": "barLen", "expr": "=(y / height) * maxBarLen" },
+          { "type": "let", "name": "calc", "expr": "=min(1.0, (y / height) * 1.6 + 0.15)" },
+          { "type": "let", "name": "angle", "expr": "=(o * angleStep) - (PI / 2)" },
+          { "type": "let", "name": "innerX", "expr": "=centerX + baseRadius * cos(angle)" },
+          { "type": "let", "name": "innerY", "expr": "=centerY + baseRadius * sin(angle)" },
+          { "type": "let", "name": "outerX", "expr": "=centerX + (baseRadius + barLen) * cos(angle)" },
+          { "type": "let", "name": "outerY", "expr": "=centerY + (baseRadius + barLen) * sin(angle)" },
+          { "type": "pushArray", "array": "outerPts", "value": { "x": "=outerX", "y": "=outerY" } },
+          { "type": "setStyle", "prop": "strokeStyle", "expr": "='rgb(' + (r * calc) + ',' + (g * calc) + ',' + (b * calc) + ')'" },
+          { "type": "strokeLine", "x1": "=innerX", "y1": "=innerY", "x2": "=outerX", "y2": "=outerY" },
+          {
+            "type": "conditional",
+            "condition": "=data[o] !== 0",
+            "then": [
+              { "type": "accumulate", "var": "tre", "expr": "=tre + data[o] + toff" }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "conditional",
+        "condition": "=fillPolygon",
+        "then": [
+          {
+            "type": "drawArrayPath",
+            "arrays": ["outerPts"],
+            "closePath": true,
+            "fill": null,
+            "stroke": null
+          },
+          {
+            "type": "path",
+            "commands": [
+              { "op": "moveTo", "x": "=centerX + baseRadius", "y": "=centerY" },
+              { "op": "arc", "x": "=centerX", "y": "=centerY", "r": "=baseRadius", "startAngle": 0, "endAngle": "=TWO_PI", "counterClockwise": true }
+            ],
+            "fill": "='rgba(' + r + ',' + g + ',' + b + ',0.15)'",
+            "fillRule": "evenodd"
+          }
+        ]
+      },
+      { "type": "let", "name": "baseCalc", "expr": "=min(1.0, 0.3)" },
+      { "type": "setStyle", "prop": "strokeStyle", "expr": "='rgba(' + (r * baseCalc) + ',' + (g * baseCalc) + ',' + (b * baseCalc) + ',0.4)'" },
+      { "type": "setStyle", "prop": "lineWidth", "expr": "=1.5" },
+      {
+        "type": "arc",
+        "x": "=centerX",
+        "y": "=centerY",
+        "r": "=baseRadius",
+        "startAngle": 0,
+        "endAngle": "=TWO_PI",
+        "stroke": "='rgba(' + (r * baseCalc) + ',' + (g * baseCalc) + ',' + (b * baseCalc) + ',0.4)'"
+      }
+    ]
+  }
+}

@@ -84,11 +84,14 @@ class FeatureGate {
 
 	/**
 	 * Gets the user's subscription tier.
+	 * Returns "paid" if the user has an active subscription OR any active manual feature grants.
 	 * @param string $userId
 	 * @return string "free" or "paid"
 	 */
 	public static function getUserTier(string $userId): string {
-		return self::hasActiveSubscription($userId) ? "paid" : "free";
+		if (self::hasActiveSubscription($userId)) return "paid";
+		if (self::hasAnyManualGrants($userId)) return "granted";
+		return "free";
 	}
 
 	/**
@@ -168,7 +171,7 @@ class FeatureGate {
 	}
 
 	/**
-	 * Checks if a user has a manual feature grant (not expired).
+	 * Checks if a user has a manual feature grant that is active (granted=1, not expired).
 	 * @param string $userId
 	 * @param string $featureKey
 	 * @return bool
@@ -178,9 +181,31 @@ class FeatureGate {
 			$pdo = Database::connect("accounts");
 			$stmt = $pdo->prepare("
 				SELECT COUNT(*) FROM `feature_flags`
-				WHERE `user_id` = ? AND `feature_key` = ?
+				WHERE `user_id` = ? AND `feature_key` = ? AND `granted` = 1
+				  AND (`expires_at` IS NULL OR `expires_at` > NOW())
 			");
 			$stmt->execute([$userId, $featureKey]);
+			return (int)$stmt->fetchColumn() > 0;
+		} catch (PDOException $e) {
+			error_log("[FeatureGate] hasManualGrant error for user=$userId feature=$featureKey: " . $e->getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * Checks if a user has ANY active manual feature grants.
+	 * @param string $userId
+	 * @return bool
+	 */
+	private static function hasAnyManualGrants(string $userId): bool {
+		try {
+			$pdo = Database::connect("accounts");
+			$stmt = $pdo->prepare("
+				SELECT COUNT(*) FROM `feature_flags`
+				WHERE `user_id` = ? AND `granted` = 1
+				  AND (`expires_at` IS NULL OR `expires_at` > NOW())
+			");
+			$stmt->execute([$userId]);
 			return (int)$stmt->fetchColumn() > 0;
 		} catch (PDOException $e) {
 			return false;

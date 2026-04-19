@@ -4,6 +4,7 @@ import { Session } from "./Session.mjs";
 import { Toast } from "./Toast.mjs";
 import { GoogleAuth } from "./services/GoogleAuth.mjs";
 import { FeatureGate } from "./FeatureGate.mjs";
+import { Tutorial } from "./Tutorial.mjs";
 
 /**
  * Manages the user profile view and edit form within the modal tab.
@@ -73,6 +74,12 @@ export class ModalProfile {
 		html += "<div class='modal-form-title' style='font-size:16px;'>Data Privacy</div>";
 		html += "<div class='modal-form-group' style='text-align:center;'>";
 		html += "<button class='modal-form-btn' id='profile-export-data' style='background:rgba(255,50,100,0.15); border-color:rgba(255,50,100,0.3);'>Download My Data</button>";
+		html += "</div>";
+
+		html += "<hr style='border-color:rgba(100,120,255,0.2);margin:16px 0;' />";
+		html += "<div class='modal-form-title' style='font-size:16px;'>Help</div>";
+		html += "<div class='modal-form-group' style='text-align:center;'>";
+		html += "<button class='modal-form-btn' id='profile-replay-tutorial' style='background:rgba(80,120,255,0.15);border-color:rgba(80,120,255,0.3);'>Replay Tutorial</button>";
 		html += "</div>";
 
 		// Linked Accounts section
@@ -159,6 +166,14 @@ export class ModalProfile {
 			});
 		}
 
+		let tutorialBtn = document.getElementById("profile-replay-tutorial");
+		if (tutorialBtn) {
+			tutorialBtn.addEventListener("click", function () {
+				Modal.close();
+				setTimeout(function () { Tutorial.startForce(); }, 250);
+			});
+		}
+
 		// Save song display format on change
 		let displayFormatSelect = document.getElementById("profile-song-display-format");
 		if (displayFormatSelect) {
@@ -201,10 +216,33 @@ export class ModalProfile {
 
 		let btns = document.querySelectorAll(".export-format-btn");
 		for (let i = 0; i < btns.length; i++) {
-			btns[i].addEventListener("click", function () {
+			btns[i].addEventListener("click", async function () {
 				let format = this.getAttribute("data-format");
-				window.location.href = "assets/php/exportData.php?format=" + format;
-				Modal.open("profile"); // Return to profile tab
+				Modal.open("profile");
+				try {
+					let response = await fetch("assets/php/exportData.php?format=" + encodeURIComponent(format));
+					if (!response.ok) {
+						Toast.error("Export failed. Please try again.");
+						return;
+					}
+					let blob = await response.blob();
+					let filename = "MusicPlayer_Data." + format;
+					let disposition = response.headers.get("Content-Disposition");
+					if (disposition) {
+						let match = disposition.match(/filename="([^"]+)"/);
+						if (match) filename = match[1];
+					}
+					let url = URL.createObjectURL(blob);
+					let a = document.createElement("a");
+					a.href = url;
+					a.download = filename;
+					document.body.appendChild(a);
+					a.click();
+					document.body.removeChild(a);
+					URL.revokeObjectURL(url);
+				} catch (e) {
+					Toast.error("Export failed. Please try again.");
+				}
 			});
 		}
 

@@ -5,6 +5,7 @@
  * PayPal Catalog Products and Billing Plans are created when syncing.
  */
 
+require_once __DIR__ . "/PayPal.php";
 require_once __DIR__ . "/PayPalApi.php";
 require_once __DIR__ . "/../Database.php";
 
@@ -27,7 +28,7 @@ class PayPalProduct {
 		$paypalProductId = null;
 
 		if ($syncToPayPal) {
-			PayPalApi::init("development");
+			PayPalApi::init(PayPal::defaultEnv());
 			$ppResult = PayPalApi::post("v1/catalogs/products", [
 				"name" => $name,
 				"description" => $description,
@@ -112,7 +113,7 @@ class PayPalProduct {
 
 		// Sync to PayPal
 		if ($syncToPayPal && !empty($product["paypal_product_id"])) {
-			PayPalApi::init("development");
+			PayPalApi::init(PayPal::defaultEnv());
 			$patchOps = [];
 			if (isset($fields["description"])) {
 				$patchOps[] = ["op" => "replace", "path" => "/description", "value" => $fields["description"]];
@@ -204,7 +205,7 @@ class PayPalProduct {
 		$paypalPlanId = null;
 
 		if ($syncToPayPal && !empty($product["paypal_product_id"])) {
-			PayPalApi::init("development");
+			PayPalApi::init(PayPal::defaultEnv());
 			$amountStr = number_format($unitAmount / 100, 2, ".", "");
 
 			$planData = [
@@ -326,7 +327,7 @@ class PayPalProduct {
 		// If pricing changed and there's a PayPal plan, deactivate old and create new
 		$newPlanId = $price["paypal_plan_id"];
 		if ($amountChanged && $syncToPayPal && !empty($price["paypal_product_id"])) {
-			PayPalApi::init("development");
+			PayPalApi::init(PayPal::defaultEnv());
 
 			// Deactivate old plan
 			if (!empty($price["paypal_plan_id"])) {
@@ -401,7 +402,7 @@ class PayPalProduct {
 		$stmt->execute([$priceId]);
 
 		if (!empty($price["paypal_plan_id"])) {
-			PayPalApi::init("development");
+			PayPalApi::init(PayPal::defaultEnv());
 			PayPalApi::post("v1/billing/plans/" . $price["paypal_plan_id"] . "/deactivate");
 		}
 

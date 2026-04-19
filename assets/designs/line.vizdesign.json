@@ -1,0 +1,91 @@
+{
+  "name": "line",
+  "label": "Line",
+  "version": 1,
+  "type": "2d",
+  "description": "Connected line segments with mirrored layout and optional fill polygon mode",
+  "audio": {
+    "toff": 150,
+    "bassRange": 0.03,
+    "bassNormDivisor": 150
+  },
+  "config": {},
+  "particles": null,
+  "subroutines": {},
+  "render": {
+    "steps": [
+      { "type": "let", "name": "bw1", "expr": "=barWidth + 1" },
+      { "type": "let", "name": "totalVisWidth", "expr": "=bw1 * (binCount * 2)" },
+      { "type": "let", "name": "startX", "expr": "=(width - totalVisWidth) / 2" },
+      { "type": "let", "name": "x", "expr": "=startX" },
+      { "type": "let", "name": "xx", "expr": "=startX + (bw1 * binCount)" },
+      { "type": "let", "name": "i", "expr": "=0" },
+      { "type": "let", "name": "u", "expr": "=0" },
+      { "type": "let", "name": "ii", "expr": "=binCount - barWidth" },
+      { "type": "let", "name": "lastCalc", "expr": "=0" },
+      { "type": "setStyle", "prop": "lineWidth", "expr": "=2" },
+      { "type": "initArray", "array": "leftPts" },
+      { "type": "initArray", "array": "rightPts" },
+      {
+        "type": "loop",
+        "var": "o",
+        "from": "=binCount",
+        "to": 0,
+        "direction": "down",
+        "body": [
+          { "type": "let", "name": "y", "expr": "=((data[o] + toff) / barHeight) * maxHeight" },
+          { "type": "let", "name": "calc", "expr": "=min(1.0, (y / height) * 1.6 + 0.15)" },
+          { "type": "let", "name": "tmpX", "expr": "=x + (i * xOffset)" },
+          { "type": "let", "name": "tmpY", "expr": "=height - y" },
+          { "type": "accumulate", "var": "lastCalc", "expr": "=calc" },
+          { "type": "pushArray", "array": "leftPts", "value": { "x": "=tmpX", "y": "=tmpY", "calc": "=calc" } },
+          { "type": "accumulate", "var": "x", "expr": "=x + bw1" },
+          { "type": "accumulate", "var": "i", "expr": "=i + 1" },
+          { "type": "let", "name": "y2", "expr": "=((data[u] + toff) / barHeight) * maxHeight" },
+          { "type": "let", "name": "calc2", "expr": "=min(1.0, (y2 / height) * 1.6 + 0.15)" },
+          { "type": "let", "name": "altX", "expr": "=xx + (ii * xOffset)" },
+          { "type": "pushArray", "array": "rightPts", "value": { "x": "=altX", "y": "=height - y2", "calc": "=calc2" } },
+          {
+            "type": "conditional",
+            "condition": "=data[u] !== 0",
+            "then": [
+              { "type": "accumulate", "var": "tre", "expr": "=tre + data[u] + toff" }
+            ]
+          },
+          { "type": "accumulate", "var": "u", "expr": "=u + 1" },
+          { "type": "accumulate", "var": "xx", "expr": "=xx + bw1" },
+          { "type": "accumulate", "var": "ii", "expr": "=ii + 1" }
+        ]
+      },
+      { "type": "let", "name": "colorStr", "expr": "='rgb(' + (r * lastCalc) + ',' + (g * lastCalc) + ',' + (b * lastCalc) + ')'" },
+      {
+        "type": "conditional",
+        "condition": "=fillPolygon",
+        "then": [
+          {
+            "type": "drawArrayPath",
+            "arrays": ["leftPts", "rightPts"],
+            "startX": "=startX",
+            "startY": "=height",
+            "endX": "=width",
+            "endY": "=height",
+            "closePath": true,
+            "fill": "=colorStr"
+          }
+        ],
+        "else": [
+          {
+            "type": "drawArrayPath",
+            "arrays": ["leftPts", "rightPts"],
+            "startX": "=startX",
+            "startY": "=height",
+            "endX": "=width",
+            "endY": "=height",
+            "stroke": "=colorStr",
+            "lineWidth": "=2"
+          }
+        ]
+      }
+    ]
+  }
+}

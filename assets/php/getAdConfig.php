@@ -12,8 +12,8 @@ header("Content-Type: application/json");
 
 $iniPath = "A:/Server/keys/monetag.ini";
 $config = file_exists($iniPath) ? parse_ini_file($iniPath, true) : [];
-$env = "development";
-$section = $config[$env] ?? $config["production"] ?? [];
+$env = "production";
+$section = $config[$env] ?? $config["development"] ?? [];
 
 $zoneId = $section["zone_id"] ?? "";
 

@@ -1,0 +1,68 @@
+{
+  "name": "radial",
+  "label": "Radial",
+  "version": 1,
+  "type": "2d",
+  "description": "Lines emanating from center in a circular pattern driven by frequency",
+  "audio": {
+    "toff": 150,
+    "bassRange": 0.03,
+    "bassNormDivisor": 150
+  },
+  "config": {},
+  "particles": null,
+  "subroutines": {},
+  "render": {
+    "steps": [
+      { "type": "let", "name": "i", "expr": "=0" },
+      { "type": "let", "name": "u", "expr": "=0" },
+      { "type": "let", "name": "x", "expr": "=0" },
+      { "type": "let", "name": "xx", "expr": "=(barWidth + 1) * (binCount + xOffset)" },
+      { "type": "let", "name": "ii", "expr": "=binCount - barWidth" },
+      { "type": "let", "name": "radius", "expr": "=30" },
+      { "type": "let", "name": "centerX", "expr": "=width / 2" },
+      { "type": "let", "name": "centerY", "expr": "=height / 2" },
+      { "type": "setStyle", "prop": "lineWidth", "expr": "=2" },
+      {
+        "type": "path",
+        "commands": [
+          { "op": "moveTo", "x": "=centerX", "y": "=centerY" }
+        ],
+        "stroke": null,
+        "fill": null
+      },
+      {
+        "type": "loop",
+        "var": "o",
+        "from": "=binCount",
+        "to": 0,
+        "direction": "down",
+        "body": [
+          { "type": "let", "name": "y", "expr": "=((data[o] + toff) / barHeight) * maxHeight" },
+          { "type": "let", "name": "calc", "expr": "=min(1.0, (y / height) * 1.6 + 0.15)" },
+          { "type": "setStyle", "prop": "strokeStyle", "expr": "='rgb(' + (r * calc) + ',' + (g * calc) + ',' + (b * calc) + ')'" },
+          { "type": "let", "name": "tmpX", "expr": "=x + (i * xOffset)" },
+          { "type": "let", "name": "tmpY", "expr": "=height - y" },
+          { "type": "let", "name": "theta", "expr": "=o * (2 * PI) / (binCount * 2)" },
+          { "type": "let", "name": "calcX", "expr": "=o + radius * cos(theta)" },
+          { "type": "let", "name": "calcY", "expr": "=o + radius * sin(theta)" },
+          { "type": "accumulate", "var": "x", "expr": "=x + barWidth + 1" },
+          { "type": "accumulate", "var": "i", "expr": "=i + 1" },
+          { "type": "let", "name": "y2", "expr": "=((data[u] + toff) / barHeight) * maxHeight" },
+          { "type": "let", "name": "calc2", "expr": "=min(1.0, (y2 / height) * 1.6 + 0.15)" },
+          { "type": "setStyle", "prop": "strokeStyle", "expr": "='rgb(' + (r * calc2) + ',' + (g * calc2) + ',' + (b * calc2) + ')'" },
+          {
+            "type": "conditional",
+            "condition": "=data[u] !== 0",
+            "then": [
+              { "type": "accumulate", "var": "tre", "expr": "=tre + data[u] + toff" }
+            ]
+          },
+          { "type": "accumulate", "var": "u", "expr": "=u + 1" },
+          { "type": "accumulate", "var": "xx", "expr": "=xx + barWidth + 1" },
+          { "type": "accumulate", "var": "ii", "expr": "=ii + 1" }
+        ]
+      }
+    ]
+  }
+}

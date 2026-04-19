@@ -13,8 +13,8 @@ class PayPalApi {
 
 	private static ?string $clientId = null;
 	private static ?string $clientSecret = null;
-	private static string $env = "development";
-	private static string $baseUrl = "https://api-m.sandbox.paypal.com";
+	private static string $env = "production";
+	private static string $baseUrl = "https://api-m.paypal.com";
 
 	/** @var string|null Cached OAuth2 access token. */
 	private static ?string $accessToken = null;
@@ -24,9 +24,11 @@ class PayPalApi {
 
 	/**
 	 * Initializes the API keys from paypal.ini.
-	 * @param string $env "development" or "production"
+	 * When called with no argument, defers to PayPal::defaultEnv().
+	 * @param string|null $env "development" or "production", or null to use default.
 	 */
-	public static function init(string $env = "development"): void {
+	public static function init(?string $env = null): void {
+		if ($env === null) $env = PayPal::defaultEnv();
 		$keys = PayPal::loadKeys();
 		if (!isset($keys[$env])) {
 			throw new Exception("PayPal environment '$env' not found in paypal.ini.");

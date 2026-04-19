@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . "/System/Database.php";
 require_once __DIR__ . "/session.php";
+require_once __DIR__ . "/System/Database.php";
 
 if (!isLoggedIn()) {
 	http_response_code(401);
@@ -14,7 +14,7 @@ try {
 	$pdo = Database::connect("accounts");
 	$stmt = $pdo->prepare("
 		SELECT `username`, `email`, `phone`, `first_name`, `last_name`, `dob`,
-		       `country`, `state_region`, `language`, `user_description`, `authority`, `created_at`
+		       `country`, `state_region`, `language`, `user_description`, `authority`
 		FROM `users`
 		WHERE `id` = ?
 		LIMIT 1
@@ -40,8 +40,7 @@ try {
 			"Region" => $profile["state_region"] ?? "N/A",
 			"Language" => $profile["language"] ?? "en",
 			"Description" => $profile["user_description"] ?? "N/A",
-			"Authority Flags" => $profile["authority"] ?? "N/A",
-			"Account Created" => $profile["created_at"] ?? "N/A"
+			"Authority Flags" => $profile["authority"] ?? "N/A"
 		]
 	];
 

@@ -6,6 +6,7 @@
 
 require_once __DIR__ . "/../session.php";
 require_once __DIR__ . "/../System/Database.php";
+require_once __DIR__ . "/../System/Payments/PayPal.php";
 require_once __DIR__ . "/../System/Payments/PayPalApi.php";
 require_once __DIR__ . "/../System/Payments/PayPalSubscription.php";
 
@@ -44,7 +45,7 @@ try {
 
 	$paypalSubId = $row["paypal_subscription_id"];
 
-	PayPalApi::init("development");
+	PayPalApi::init(PayPal::defaultEnv());
 	$result = PayPalSubscription::cancel($paypalSubId, "Admin cancellation");
 
 	if (isset($result["error"])) {

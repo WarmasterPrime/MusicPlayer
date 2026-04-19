@@ -3,6 +3,7 @@ import { Api } from "./Api.mjs";
 import { FeatureGate } from "./FeatureGate.mjs";
 import { Session } from "./Session.mjs";
 import { Toast } from "./Toast.mjs";
+import { UrlParams } from "./UrlParams.mjs";
 
 /**
  * Manages the layout designer and layout loading system.
@@ -15,6 +16,9 @@ export class ModalLayoutDesigner {
     static selectedComponent = null;
     static idSeq = 0;
     static designerResizeHandler = null;
+
+    /** ID of the layout currently loaded from the URL ?layout= param, or null. */
+    static sharedLayoutId = null;
 
     /**
      * Initializes the layout designer tab.
@@ -49,14 +53,28 @@ export class ModalLayoutDesigner {
     static async renderLayoutList() {
         try {
             let result = await Api.get("assets/php/layoutManager.php?action=list");
-            let html = `
-                <div class="layout-list-container">
-                    <button class="modal-form-btn" id="create-new-layout" style="margin-bottom: 15px;">+ Create New Layout</button>
-                    <div class="layout-items">
-            `;
+            let sharedId = ModalLayoutDesigner.sharedLayoutId;
+            let html = `<div class="layout-list-container">`;
+
+            // Shared layout banner
+            if (sharedId) {
+                let shareUrl = new URL(window.location);
+                shareUrl.searchParams.set("layout", sharedId);
+                html += `
+                    <div class="shared-layout-banner">
+                        <span>🔗 Viewing shared layout from URL</span>
+                        <button class="modal-form-btn" id="unload-shared-layout" style="width:auto;font-size:12px;padding:4px 10px;">Unload</button>
+                    </div>`;
+            }
+
+            html += `<button class="modal-form-btn" id="create-new-layout" style="margin-bottom: 15px;">+ Create New Layout</button>
+                    <div class="layout-items">`;
 
             if (result.success && result.layouts && result.layouts.length > 0) {
                 result.layouts.forEach(layout => {
+                    let shareUrl = new URL(window.location);
+                    shareUrl.searchParams.set("layout", layout.id);
+                    // Strip other state params that aren't needed for sharing
                     html += `
                         <div class="layout-item ${layout.is_active ? 'active' : ''}" data-id="${layout.id}">
                             <div class="layout-info">
@@ -66,8 +84,9 @@ export class ModalLayoutDesigner {
                             <div class="layout-actions">
                                 <button class="layout-action-btn edit" data-id="${layout.id}">Edit</button>
                                 <button class="layout-action-btn delete" data-id="${layout.id}">Delete</button>
-                                ${layout.is_active ? 
-                                    `<button class="layout-action-btn unload" data-id="${layout.id}">Unload</button>` : 
+                                <button class="layout-action-btn share" data-id="${layout.id}" data-url="${shareUrl.href}" title="Copy shareable URL">🔗 Share</button>
+                                ${layout.is_active ?
+                                    `<button class="layout-action-btn unload" data-id="${layout.id}">Unload</button>` :
                                     `<button class="layout-action-btn load" data-id="${layout.id}">Load</button>`
                                 }
                             </div>
@@ -116,6 +135,7 @@ export class ModalLayoutDesigner {
                         <div class="draggable-component" data-type="song-display">Song / Artist</div>
                         <div class="draggable-component" data-type="album-name">Album Name</div>
                         <div class="draggable-component" data-type="progress-bar">Progress Bar</div>
+                        <div class="draggable-component" data-type="lyrics">Lyrics</div>
                         <div class="draggable-component" data-type="source-url">Source URL</div>
                         <div class="draggable-component" data-type="publisher">Publisher</div>
                         <div class="draggable-component" data-type="composers">Composers</div>
@@ -161,7 +181,18 @@ export class ModalLayoutDesigner {
             });
         }
 
-        // Action buttons: load, unload, edit, delete
+        // Unload shared layout button (shown in banner when viewing from URL)
+        let unloadSharedBtn = document.getElementById("unload-shared-layout");
+        if (unloadSharedBtn) {
+            unloadSharedBtn.addEventListener("click", async () => {
+                await ModalLayoutDesigner.unloadSharedLayout();
+                let content = document.getElementById("layout-subtab-content");
+                content.innerHTML = await ModalLayoutDesigner.renderLayoutList();
+                ModalLayoutDesigner.attachListListeners();
+            });
+        }
+
+        // Action buttons: load, unload, edit, delete, share
         document.querySelectorAll(".layout-action-btn").forEach(btn => {
             btn.addEventListener("click", async (e) => {
                 e.stopPropagation();
@@ -171,6 +202,7 @@ export class ModalLayoutDesigner {
                 } else if (btn.classList.contains("unload")) {
                     await ModalLayoutDesigner.setActive(id, false);
                 } else if (btn.classList.contains("edit")) {
+                    // Only allow editing own layouts (not shared-from-URL layouts)
                     let result = await Api.get(`assets/php/layoutManager.php?action=get&id=${id}`);
                     if (result.success) {
                         ModalLayoutDesigner.currentLayout = result.layout;
@@ -182,6 +214,17 @@ export class ModalLayoutDesigner {
                         let content = document.getElementById("layout-subtab-content");
                         content.innerHTML = await ModalLayoutDesigner.renderLayoutList();
                         ModalLayoutDesigner.attachListListeners();
+                    }
+                } else if (btn.classList.contains("share")) {
+                    let shareUrl = btn.getAttribute("data-url");
+                    if (shareUrl) {
+                        try {
+                            await navigator.clipboard.writeText(shareUrl);
+                            Toast.success("Shareable link copied to clipboard!");
+                        } catch (_) {
+                            // Clipboard API may not be available in all contexts
+                            prompt("Copy this link to share your layout:", shareUrl);
+                        }
                     }
                 }
             });
@@ -300,6 +343,7 @@ export class ModalLayoutDesigner {
         if (type === "progress-bar") return { ...base, width: 100, height: 2 };
         if (type === "song-display") return { ...base, width: 50, height: 8 };
         if (type === "custom-html") return { ...base, width: 40, height: 18 };
+        if (type === "lyrics") return { ...base, fontSize: "18px", width: 60, height: 6, color: "#ffffff" };
         // textual components default box
         return { ...base, width: 40, height: 5 };
     }
@@ -608,6 +652,47 @@ export class ModalLayoutDesigner {
         }
     }
 
+    /**
+     * Checks the URL for a ?layout=<id> parameter on page load.
+     * If present, fetches and applies that layout as a read-only shared view.
+     * This runs BEFORE applyActiveLayout so the URL-shared layout takes priority.
+     * @returns {boolean} True if a shared layout was loaded from the URL.
+     */
+    static async checkUrlLayout() {
+        let params = UrlParams.GetParams();
+        let layoutId = params["layout"];
+        if (!layoutId) return false;
+
+        try {
+            let result = await Api.get(`assets/php/layoutManager.php?action=get&id=${encodeURIComponent(layoutId)}`);
+            if (result.success && result.layout) {
+                let components = JSON.parse(result.layout.layout_data);
+                Visual.activeLayout = ModalLayoutDesigner.migrateComponents(components);
+                ModalLayoutDesigner.hideDefaultElements(true);
+                ModalLayoutDesigner.sharedLayoutId = layoutId;
+                console.log("[Layout] Loaded shared layout from URL:", layoutId);
+                return true;
+            }
+        } catch (e) {
+            console.warn("[Layout] Failed to load shared layout from URL:", e);
+        }
+        return false;
+    }
+
+    /**
+     * Unloads the currently URL-shared layout and restores the user's own active layout.
+     * Removes the ?layout= URL parameter.
+     */
+    static async unloadSharedLayout() {
+        ModalLayoutDesigner.sharedLayoutId = null;
+        UrlParams.removeParam("layout");
+        Visual.activeLayout = null;
+        ModalLayoutDesigner.hideDefaultElements(false);
+        // Re-apply the user's own active layout if any
+        await ModalLayoutDesigner.applyActiveLayout();
+        Toast.success("Shared layout unloaded.");
+    }
+
     static async applyActiveLayout() {
         try {
             let result = await Api.get("assets/php/layoutManager.php?action=list");
@@ -617,7 +702,7 @@ export class ModalLayoutDesigner {
                     let layoutData = await Api.get(`assets/php/layoutManager.php?action=get&id=${active.id}`);
                     if (layoutData.success) {
                         let components = JSON.parse(layoutData.layout.layout_data);
-                        Visual.activeLayout = components;
+                        Visual.activeLayout = ModalLayoutDesigner.migrateComponents(components);
                         ModalLayoutDesigner.hideDefaultElements(true);
                         return;
                     }

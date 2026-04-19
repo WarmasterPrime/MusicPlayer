@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . "/session.php";
 require_once __DIR__ . "/System/Database.php";
 
 header("Content-Type: application/json");
@@ -26,8 +27,17 @@ try {
 	$row = $stmt->fetch();
 
 	if ($row && $row["lyrics_json"]) {
-		$decoded = json_decode($row["lyrics_json"], true);
-		echo json_encode($decoded !== null ? $decoded : $row["lyrics_json"]);
+		$raw = $row["lyrics_json"];
+		$decoded = json_decode($raw, true);
+
+		if ($decoded !== null) {
+			// Stored as valid JSON (array or object) — return decoded value
+			echo json_encode($decoded);
+		} else {
+			// Stored as a raw LRC string — return it as a JSON string so the
+			// client's Lyrics.fromLrc() can parse it.
+			echo json_encode($raw);
+		}
 	} else {
 		echo json_encode(null);
 	}

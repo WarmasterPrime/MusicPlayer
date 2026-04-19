@@ -1,0 +1,135 @@
+{
+  "name": "polygon",
+  "label": "Polygon",
+  "version": 1,
+  "type": "2d",
+  "description": "Frequency bars radiate outward perpendicular to each side of a regular polygon",
+  "audio": {
+    "toff": 150,
+    "bassRange": 0.03,
+    "bassNormDivisor": 150
+  },
+  "config": {
+    "polygonSides": true
+  },
+  "particles": null,
+  "subroutines": {},
+  "render": {
+    "steps": [
+      { "type": "let", "name": "centerX", "expr": "=width / 2" },
+      { "type": "let", "name": "centerY", "expr": "=height * 0.6" },
+      { "type": "let", "name": "minDim", "expr": "=min(width, height)" },
+      { "type": "let", "name": "baseRadius", "expr": "=minDim * 0.15" },
+      { "type": "let", "name": "maxBarLen", "expr": "=minDim * 0.35" },
+      { "type": "let", "name": "count", "expr": "=binCount" },
+      { "type": "let", "name": "sides", "expr": "=max(2, min(10000, polygonSides))" },
+
+      { "type": "let", "name": "_verts", "expr": "=(function(){ var v=[]; for(var s=0;s<=sides;s++){var a=(s*TWO_PI/sides)-(PI/2); v.push({x:centerX+baseRadius*cos(a), y:centerY+baseRadius*sin(a)});} return v; })()" },
+
+      { "type": "let", "name": "perimeter", "expr": "=(function(){ var p=0; for(var s=0;s<sides;s++){var dx=_verts[s+1].x-_verts[s].x, dy=_verts[s+1].y-_verts[s].y; p+=sqrt(dx*dx+dy*dy);} return p; })()" },
+      { "type": "let", "name": "bw", "expr": "=max(1, (perimeter / count) * 0.8)" },
+      { "type": "setStyle", "prop": "lineWidth", "expr": "=bw" },
+      { "type": "setStyle", "prop": "lineCap", "expr": "='round'" },
+      { "type": "let", "name": "barsPerSide", "expr": "=count / sides" },
+      { "type": "initArray", "array": "outerPts" },
+
+      {
+        "type": "loop",
+        "var": "o",
+        "from": 0,
+        "to": "=count",
+        "direction": "up",
+        "body": [
+          { "type": "let", "name": "y", "expr": "=max(0, ((data[o] + toff) / barHeight) * maxHeight)" },
+          { "type": "let", "name": "barLen", "expr": "=(y / height) * maxBarLen" },
+          { "type": "let", "name": "calc", "expr": "=min(1.0, (y / height) * 1.6 + 0.15)" },
+          { "type": "let", "name": "sideIdx", "expr": "=min(sides - 1, floor(o / barsPerSide))" },
+          { "type": "let", "name": "t", "expr": "=(o - sideIdx * barsPerSide) / barsPerSide" },
+          { "type": "let", "name": "v0", "expr": "=_verts[sideIdx]" },
+          { "type": "let", "name": "v1", "expr": "=_verts[sideIdx + 1]" },
+          { "type": "let", "name": "posX", "expr": "=v0.x + (v1.x - v0.x) * t" },
+          { "type": "let", "name": "posY", "expr": "=v0.y + (v1.y - v0.y) * t" },
+          { "type": "let", "name": "edgeDx", "expr": "=v1.x - v0.x" },
+          { "type": "let", "name": "edgeDy", "expr": "=v1.y - v0.y" },
+          { "type": "let", "name": "edgeLen", "expr": "=sqrt(edgeDx * edgeDx + edgeDy * edgeDy)" },
+          { "type": "let", "name": "nx", "expr": "=-edgeDy / edgeLen" },
+          { "type": "let", "name": "ny", "expr": "=edgeDx / edgeLen" },
+          { "type": "let", "name": "toCenterX", "expr": "=centerX - posX" },
+          { "type": "let", "name": "toCenterY", "expr": "=centerY - posY" },
+          {
+            "type": "conditional",
+            "condition": "=nx * toCenterX + ny * toCenterY > 0",
+            "then": [
+              { "type": "accumulate", "var": "nx", "expr": "=-nx" },
+              { "type": "accumulate", "var": "ny", "expr": "=-ny" }
+            ]
+          },
+          { "type": "let", "name": "outerX", "expr": "=posX + nx * barLen" },
+          { "type": "let", "name": "outerY", "expr": "=posY + ny * barLen" },
+          { "type": "pushArray", "array": "outerPts", "value": { "x": "=outerX", "y": "=outerY" } },
+          { "type": "setStyle", "prop": "strokeStyle", "expr": "='rgb(' + (r * calc) + ',' + (g * calc) + ',' + (b * calc) + ')'" },
+          { "type": "strokeLine", "x1": "=posX", "y1": "=posY", "x2": "=outerX", "y2": "=outerY" },
+          {
+            "type": "conditional",
+            "condition": "=data[o] !== 0",
+            "then": [
+              { "type": "accumulate", "var": "tre", "expr": "=tre + data[o] + toff" }
+            ]
+          }
+        ]
+      },
+
+      {
+        "type": "conditional",
+        "condition": "=fillPolygon",
+        "then": [
+          { "type": "beginPath" },
+          { "type": "let", "name": "_op0", "expr": "=_arrays.outerPts[0]" },
+          { "type": "moveTo", "x": "=_op0.x", "y": "=_op0.y" },
+          { "type": "let", "name": "_dummy2", "expr": "=(function(){ var ctx2 = 0; return 0; })()" },
+          {
+            "type": "forEachArray",
+            "array": "outerPts",
+            "itemVar": "pt",
+            "indexVar": "pi",
+            "body": [
+              { "type": "lineTo", "x": "=pt.x", "y": "=pt.y" }
+            ]
+          },
+          { "type": "closePath" },
+          { "type": "moveTo", "x": "=_verts[0].x", "y": "=_verts[0].y" },
+          { "type": "let", "name": "_dummy3", "expr": "=(function(){ for(var ss=sides;ss>=0;ss--){ _arrays.__pendingLineTos = _arrays.__pendingLineTos || []; _arrays.__pendingLineTos.push({x:_verts[ss].x, y:_verts[ss].y}); } return 0; })()" },
+          {
+            "type": "forEachArray",
+            "array": "__pendingLineTos",
+            "itemVar": "vpt",
+            "indexVar": "vi",
+            "body": [
+              { "type": "lineTo", "x": "=vpt.x", "y": "=vpt.y" }
+            ]
+          },
+          { "type": "closePath" },
+          { "type": "fill", "style": "='rgba(' + r + ',' + g + ',' + b + ',0.15)'", "fillRule": "evenodd" }
+        ]
+      },
+
+      { "type": "let", "name": "baseCalc", "expr": "=min(1.0, 0.3)" },
+      { "type": "setStyle", "prop": "strokeStyle", "expr": "='rgba(' + (r * baseCalc) + ',' + (g * baseCalc) + ',' + (b * baseCalc) + ',0.4)'" },
+      { "type": "setStyle", "prop": "lineWidth", "expr": "=1.5" },
+      { "type": "beginPath" },
+      { "type": "moveTo", "x": "=_verts[0].x", "y": "=_verts[0].y" },
+      { "type": "let", "name": "_dummy4", "expr": "=(function(){ for(var ss=1;ss<=sides;ss++){ _arrays.__baseLineTos = _arrays.__baseLineTos || []; _arrays.__baseLineTos.push({x:_verts[ss].x, y:_verts[ss].y}); } return 0; })()" },
+      {
+        "type": "forEachArray",
+        "array": "__baseLineTos",
+        "itemVar": "bpt",
+        "indexVar": "bi",
+        "body": [
+          { "type": "lineTo", "x": "=bpt.x", "y": "=bpt.y" }
+        ]
+      },
+      { "type": "closePath" },
+      { "type": "doStroke" }
+    ]
+  }
+}
