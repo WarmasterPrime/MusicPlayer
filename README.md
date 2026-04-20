@@ -81,7 +81,7 @@ state survives a refresh and can be shared by copy-pasting the URL.
 
 | Param | Type | Meaning |
 | --- | --- | --- |
-| `song` | string | Song URL to auto-load. |
+| `song` | string | The ID of the song to auto-load. |
 | `r`, `g`, `b` | 0–255 | Visualizer bar color. |
 | `design` | string | Active visualizer design name (e.g. `bar`, `lyricparticles`, `recordplayer`, `3dsphere`). |
 | `lyrics` | bool | Show caption overlay. |
