@@ -26,7 +26,7 @@ LAMP/WAMP stack — the reference dev environment is WampServer on Windows.
 ### Install
 1. Clone into your web root, e.g. `A:/wamp64/www/WebRoot/www/MusicPlayer`.
 2. Create the three databases and a user that can `SELECT/INSERT/UPDATE/DELETE/ALTER`.
-3. Create `db.ini` at `A:/wamp64/www/ServerAssets/Assets/Server/Info/PHP/db.ini`
+3. Create `db.ini` and update the path reference.
    (the path is hard-coded in `assets/php/System/Database.php`). Format:
    ```ini
    [connection]
