@@ -220,9 +220,24 @@ export class ModalProfile {
 				let format = this.getAttribute("data-format");
 				Modal.open("profile");
 				try {
-					let response = await fetch("assets/php/exportData.php?format=" + encodeURIComponent(format));
+					// credentials:"same-origin" ensures the session cookie is
+					// attached on all browsers; without it some configurations
+					// (e.g. strict cross-site cookies behind a reverse proxy)
+					// drop the auth cookie and the PHP endpoint returns 401.
+					let response = await fetch("assets/php/exportData.php?format=" + encodeURIComponent(format), {
+						credentials: "same-origin"
+					});
 					if (!response.ok) {
-						Toast.error("Export failed. Please try again.");
+						// Try to pull the server's error message so the user
+						// knows WHY the export failed rather than a generic
+						// "try again". Falls back to status text if the
+						// response body isn't readable.
+						let detail = "";
+						try { detail = await response.text(); } catch (e) {}
+						let status = response.status + " " + (response.statusText || "");
+						console.warn("[exportData]", status, detail);
+						let brief = (detail || status).trim().split("\n")[0].slice(0, 140);
+						Toast.error("Export failed: " + (brief || status));
 						return;
 					}
 					let blob = await response.blob();
@@ -241,7 +256,8 @@ export class ModalProfile {
 					document.body.removeChild(a);
 					URL.revokeObjectURL(url);
 				} catch (e) {
-					Toast.error("Export failed. Please try again.");
+					console.error("[exportData]", e);
+					Toast.error("Export failed: " + (e && e.message ? e.message : "network error"));
 				}
 			});
 		}

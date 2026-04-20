@@ -35,6 +35,22 @@ try {
             }
             break;
 
+        case "get_shared":
+            // Capability-style access: anyone with a valid layout ID can view
+            // the layout. Used by ?layout=<id> deep links so shared URLs
+            // resolve for users who don't own the layout. Only returns the
+            // fields needed for read-only rendering (no is_active flag).
+            $id = $_GET["id"] ?? "";
+            $stmt = $pdo->prepare("SELECT `id`, `name`, `layout_data` FROM `user_layouts` WHERE `id` = ?");
+            $stmt->execute([$id]);
+            $layout = $stmt->fetch();
+            if ($layout) {
+                echo json_encode(["success" => true, "layout" => $layout]);
+            } else {
+                echo json_encode(["success" => false, "message" => "Shared layout not found."]);
+            }
+            break;
+
         case "save":
             $data = json_decode(file_get_contents("php://input"), true);
             $id = $data["id"] ?? null;

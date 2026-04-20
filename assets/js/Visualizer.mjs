@@ -1384,11 +1384,16 @@ export class Visual {
 			}
 		}
 
-		// Regular top-spawn tied to bass (new flakes drift in from above).
+		// Regular top-spawn tied to bass. Spawn X range extends slightly
+		// past both edges so wind-driven particles don't leave uncovered
+		// bands on either side of the canvas.
 		let spawnCount = Math.floor(5 + bass * 15);
+		// Extend spawn area 20% past each edge so particles that drift
+		// diagonally still cover the bottom-left / bottom-right corners.
+		let spawnMargin = viz.width * 0.2;
 		for (let s = 0; s < spawnCount; s++) {
 			Visual.#snowParticles.push({
-				x: Math.random() * viz.width,
+				x: -spawnMargin + Math.random() * (viz.width + spawnMargin * 2),
 				y: -Math.random() * 40,
 				r: 1.5 + Math.random() * 3 + bass * 3,
 				vx: (Math.random() - 0.5) * 0.3,
@@ -1397,6 +1402,32 @@ export class Visual {
 				wobble: Math.random() * Math.PI * 2,
 				wobbleSpeed: 0.01 + Math.random() * 0.03
 			});
+		}
+
+		// Side-spawn: when wind is driving particles in one direction, seed
+		// extra flakes from the OTHER side of the canvas so the departure
+		// edge keeps its coverage. Strength scales with |wind|.
+		let absWind = Math.abs((bass - 0.3) * 2.5);
+		if (absWind > 0.2) {
+			let sideSpawnCount = Math.floor(absWind * 6);
+			// wind > 0 → particles drift right → seed from the LEFT off-canvas
+			// wind < 0 → drift left  → seed from the RIGHT off-canvas
+			let seedFromLeft = (bass - 0.3) >= 0;
+			for (let s = 0; s < sideSpawnCount; s++) {
+				let sx = seedFromLeft
+					? -Math.random() * spawnMargin
+					: viz.width + Math.random() * spawnMargin;
+				Visual.#snowParticles.push({
+					x: sx,
+					y: Math.random() * viz.height * 0.8, // seed at various heights
+					r: 1.5 + Math.random() * 3,
+					vx: (Math.random() - 0.5) * 0.3,
+					vy: 0.5 + Math.random() * 1.5,
+					opacity: 0.4 + Math.random() * 0.6,
+					wobble: Math.random() * Math.PI * 2,
+					wobbleSpeed: 0.01 + Math.random() * 0.03
+				});
+			}
 		}
 
 		// Population-floor backfill: when population drops below the target,

@@ -515,6 +515,25 @@ function checkSong() {
 			if (!isNaN(lc)) Visualizer3D.lyricParticleCount = lc;
 		}
 
+		// Lyric Particles text curvature (0–100 stored as 0–1 internally).
+		// Lets users arc the text toward the viewer for off-axis readability.
+		if (obj["lyricCurve"] !== undefined) {
+			let lv = parseInt(obj["lyricCurve"], 10);
+			if (!isNaN(lv)) {
+				lv = Math.max(0, Math.min(100, lv));
+				Visualizer3D.lyricTextCurvature = lv / 100;
+			}
+		}
+
+		// Record-player plate text — restores a custom label across reloads
+		// so shared URLs carry the rendered text. Plaque is repainted on
+		// setup by #setupRecordPlayer(), so just writing the field is enough
+		// here; the live-repaint happens when ModalOptions calls
+		// rebuildRecordPlate() on input change.
+		if (obj["recordText"] !== undefined) {
+			Visualizer3D.recordPlateText = String(obj["recordText"]);
+		}
+
 		if (obj["fillPolygon"] !== undefined) {
 			let val = obj["fillPolygon"] !== "false";
 			Visual.fillPolygon = val;

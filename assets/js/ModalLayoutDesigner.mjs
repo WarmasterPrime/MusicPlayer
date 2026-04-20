@@ -664,7 +664,10 @@ export class ModalLayoutDesigner {
         if (!layoutId) return false;
 
         try {
-            let result = await Api.get(`assets/php/layoutManager.php?action=get&id=${encodeURIComponent(layoutId)}`);
+            // Use action=get_shared so the deep link resolves even when the
+            // viewer is not the owner. action=get is ownership-gated and
+            // would 404 for any recipient of a shared URL.
+            let result = await Api.get(`assets/php/layoutManager.php?action=get_shared&id=${encodeURIComponent(layoutId)}`);
             if (result.success && result.layout) {
                 let components = JSON.parse(result.layout.layout_data);
                 Visual.activeLayout = ModalLayoutDesigner.migrateComponents(components);
@@ -672,6 +675,8 @@ export class ModalLayoutDesigner {
                 ModalLayoutDesigner.sharedLayoutId = layoutId;
                 console.log("[Layout] Loaded shared layout from URL:", layoutId);
                 return true;
+            } else {
+                console.warn("[Layout] Shared layout fetch returned no data:", result);
             }
         } catch (e) {
             console.warn("[Layout] Failed to load shared layout from URL:", e);

@@ -374,3 +374,7 @@ FodyWeavers.xsd
 
 # PHP session files
 sessions/
+
+# Graphify code-visualization tool output (generated locally)
+graphify-out/
+assets/graphify-out/

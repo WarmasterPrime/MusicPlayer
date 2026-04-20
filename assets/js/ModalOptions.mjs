@@ -3,6 +3,7 @@ import { Visualizer3D } from "./Visualizer3D.mjs";
 import { UrlParams } from "./UrlParams.mjs";
 import { ColorPicker } from "./ColorPicker.mjs";
 import { ModalLayoutDesigner } from "./ModalLayoutDesigner.mjs";
+import { MicLyrics } from "./MicLyrics.mjs";
 
 /**
  * Options modal for the MusicPlayer visualizer.
@@ -95,6 +96,21 @@ export class ModalOptions {
 			Visual.lyricsEnabled = params["lyrics"] !== "false";
 			let caption = document.getElementById("caption");
 			if (caption) caption.style.opacity = Visual.lyricsEnabled ? 1 : 0;
+		}
+
+		// Mic-lyrics: start listening automatically if the URL requests it.
+		// We only kick this off on an explicit user nav (e.g. restoring a
+		// deep link) because the browser requires a user gesture for the
+		// mic permission prompt. If the prompt is blocked, start() returns
+		// false silently and the UI reflects the off state.
+		if (params["micLyrics"] === "true") {
+			try {
+				MicLyrics.start().then(function (ok) {
+					if (!ok) {
+						UrlParams.removeParam("micLyrics");
+					}
+				});
+			} catch (e) {}
 		}
 
 		if (params["hideSongName"] !== undefined)
@@ -519,6 +535,63 @@ export class ModalOptions {
 		ModalOptions.#els.lyricCount = lyricCountInput;
 		lyricCountRow.appendChild(lyricCountInput);
 		designSection.appendChild(lyricCountRow);
+
+		// Lyric Particles: text curvature slider. 0 = flat plane, 1 = wraps
+		// around a near half-cylinder so the ends bend toward the viewer —
+		// readability trick for off-axis viewing. Retarget in flight so the
+		// live particles flow onto the newly-shaped letters.
+		let lyricCurveRow = ModalOptions.#createRow("Text Curvature");
+		lyricCurveRow.id = "opt-lyric-curve-row";
+		lyricCurveRow.style.display = isLyric ? "" : "none";
+		let lyricCurveSlider = document.createElement("input");
+		lyricCurveSlider.type = "range";
+		lyricCurveSlider.className = "opt-range";
+		lyricCurveSlider.min = "0";
+		lyricCurveSlider.max = "100";
+		lyricCurveSlider.step = "1";
+		lyricCurveSlider.value = String(Math.round((Number(Visualizer3D.lyricTextCurvature) || 0) * 100));
+		lyricCurveSlider.title = "Wrap the text around a cylinder (0 = flat, 100 = half-cylinder)";
+		lyricCurveSlider.addEventListener("input", function () {
+			let v = parseInt(this.value, 10);
+			if (isNaN(v)) v = 0;
+			v = Math.max(0, Math.min(100, v));
+			Visualizer3D.lyricTextCurvature = v / 100;
+			try { UrlParams.SetParam("lyricCurve", String(v)); } catch (e) {}
+			if (Visual.currentDesign === "lyricparticles" &&
+				typeof Visualizer3D.retargetLyricParticles === "function") {
+				Visualizer3D.retargetLyricParticles();
+			}
+		});
+		ModalOptions.#els.lyricCurve = lyricCurveSlider;
+		lyricCurveRow.appendChild(lyricCurveSlider);
+		designSection.appendChild(lyricCurveRow);
+
+		// Record Player: customizable plate text. Only visible when the
+		// Record Player design is active. Persists to the URL as ?recordText=
+		// so layouts / shares restore the same label. Repaints live as the
+		// user types — the plaque texture rebinds on each keystroke.
+		let isRecord = Visual.currentDesign === "recordplayer";
+		let recordTextRow = ModalOptions.#createRow("Plate Text");
+		recordTextRow.id = "opt-record-text-row";
+		recordTextRow.style.display = isRecord ? "" : "none";
+		let recordTextInput = document.createElement("input");
+		recordTextInput.type = "text";
+		recordTextInput.className = "opt-input";
+		recordTextInput.maxLength = 40;
+		recordTextInput.value = Visualizer3D.recordPlateText || "Virtma";
+		recordTextInput.title = "Text displayed on the record player's front plaque";
+		recordTextInput.addEventListener("input", function () {
+			let v = String(this.value || "");
+			Visualizer3D.recordPlateText = v;
+			try { UrlParams.SetParam("recordText", v); } catch (e) {}
+			if (Visual.currentDesign === "recordplayer" &&
+				typeof Visualizer3D.rebuildRecordPlate === "function") {
+				Visualizer3D.rebuildRecordPlate();
+			}
+		});
+		ModalOptions.#els.recordText = recordTextInput;
+		recordTextRow.appendChild(recordTextInput);
+		designSection.appendChild(recordTextRow);
 
 		// 3D design options (conditionally visible)
 		let is3D = Visualizer3D.is3D(Visual.currentDesign);
@@ -1043,6 +1116,32 @@ export class ModalOptions {
 		lyricsRow.appendChild(lyricsToggle);
 		section.appendChild(lyricsRow);
 
+		// Mic Lyrics toggle — routes live speech recognition through the
+		// lyrics pipeline. Hidden if the browser doesn't support SpeechRecognition.
+		if (MicLyrics.isSupported()) {
+			let micRow = ModalOptions.#createRow("Mic Lyrics");
+			let micToggle = ModalOptions.#createToggle("opt-mic-lyrics", MicLyrics.isActive(), async function (checked) {
+				if (checked) {
+					let ok = await MicLyrics.start();
+					if (!ok) {
+						// Permission denied or unsupported — revert the UI.
+						let inp = document.getElementById("opt-mic-lyrics");
+						if (inp) inp.checked = false;
+						UrlParams.removeParam("micLyrics");
+						return;
+					}
+					UrlParams.SetParam("micLyrics", "true");
+				} else {
+					MicLyrics.stop();
+					UrlParams.removeParam("micLyrics");
+				}
+			});
+			ModalOptions.#els.micLyrics = micToggle.querySelector("input");
+			micRow.title = "Speak into your microphone to drive the on-screen lyrics in real time.";
+			micRow.appendChild(micToggle);
+			section.appendChild(micRow);
+		}
+
 		// Theme toggle
 		let themeRow = ModalOptions.#createRow("Light Theme");
 		let isLight = document.documentElement.getAttribute("data-theme") === "light";
@@ -1123,12 +1222,20 @@ export class ModalOptions {
 		newBgRow.appendChild(newBgToggle);
 		section.appendChild(newBgRow);
 
-		// Sphere toggle
+		// Sphere toggle — mirrors the legacy #sphere checkbox so both controls
+		// stay in sync, and always writes the "sphere" URL param.
 		let sphereRow = ModalOptions.#createRow("Sphere");
 		let sphereToggle = ModalOptions.#createToggle("opt-sphere", ModalOptions.#isSphereVisible(), function (checked) {
 			let objElm = document.getElementById("obj");
 			if (objElm) objElm.style.display = checked ? "block" : "none";
 			if (ModalOptions.#bgStateCallback) ModalOptions.#bgStateCallback(checked);
+			// Keep the legacy hidden checkbox in sync AND dispatch its change
+			// event so any listeners bound in main.mjs also fire.
+			let legacyCb = document.getElementById("sphere");
+			if (legacyCb && legacyCb.checked !== checked) {
+				legacyCb.checked = checked;
+				legacyCb.dispatchEvent(new Event("change", { bubbles: true }));
+			}
 			UrlParams.SetParam("sphere", String(checked));
 		});
 		ModalOptions.#els.sphere = sphereToggle.querySelector("input");
@@ -1286,19 +1393,33 @@ export class ModalOptions {
 		if (els.liqVisc) els.liqVisc.value = String(Visualizer3D.liquidViscosity);
 		if (els.liqDens) els.liqDens.value = String(Visualizer3D.liquidDensity);
 
-		// Lyric particles: show the count slider only when that design is active.
+		// Lyric particles: show the count + curvature sliders only when that design is active.
 		let showLyric = Visual.currentDesign === "lyricparticles";
 		let lcRow = document.getElementById("opt-lyric-count-row");
+		let lcvRow = document.getElementById("opt-lyric-curve-row");
 		if (lcRow) lcRow.style.display = showLyric ? "" : "none";
+		if (lcvRow) lcvRow.style.display = showLyric ? "" : "none";
 		if (els.lyricCount) els.lyricCount.value = String(Visualizer3D.lyricParticleCount);
+		if (els.lyricCurve) els.lyricCurve.value = String(Math.round((Number(Visualizer3D.lyricTextCurvature) || 0) * 100));
+		// Record Player: plate-text input only visible when that design active.
+		let showRecord = Visual.currentDesign === "recordplayer";
+		let rtRow = document.getElementById("opt-record-text-row");
+		if (rtRow) rtRow.style.display = showRecord ? "" : "none";
+		if (els.recordText) els.recordText.value = Visualizer3D.recordPlateText || "Virtma";
+		// Keep the mic-lyrics checkbox in sync with runtime state so the UI
+		// reflects auto-start on reload and any programmatic stop.
+		if (els.micLyrics) els.micLyrics.checked = MicLyrics.isActive();
 
-		// 3D options visibility and sync
+		// 3D options visibility and sync. The top-of-panel camera-mode row
+		// was previously named "autorot" — keep the id we actually render
+		// (opt-3d-cammode-row) in sync here too.
 		let show3D = Visualizer3D.is3D(Visual.currentDesign);
-		let arRow = document.getElementById("opt-3d-autorot-row");
+		let cmRow = document.getElementById("opt-3d-cammode-row");
 		let orRow = document.getElementById("opt-3d-orbit-row");
-		if (arRow) arRow.style.display = show3D ? "" : "none";
+		if (cmRow) cmRow.style.display = show3D ? "" : "none";
 		if (orRow) orRow.style.display = show3D ? "" : "none";
 		if (els.autoRotate) els.autoRotate.checked = Visualizer3D.autoRotate;
+		if (els.cameraMode) els.cameraMode.value = Visualizer3D.cameraMode || "static";
 		if (els.orbitEnabled) els.orbitEnabled.checked = Visualizer3D.orbitEnabled;
 
 		// 3D Lighting section
@@ -1911,12 +2032,17 @@ export class ModalOptions {
 				let el = document.getElementById(lids[i]);
 				if (el) el.style.display = showLiquid ? "" : "none";
 			}
-			// Lyric particles count slider
+			// Lyric particles count + curvature sliders
 			let lcEl = document.getElementById("opt-lyric-count-row");
 			if (lcEl) lcEl.style.display = design === "lyricparticles" ? "" : "none";
+			let lcvEl = document.getElementById("opt-lyric-curve-row");
+			if (lcvEl) lcvEl.style.display = design === "lyricparticles" ? "" : "none";
+			// Record-player plate text input
+			let rtEl = document.getElementById("opt-record-text-row");
+			if (rtEl) rtEl.style.display = design === "recordplayer" ? "" : "none";
 			// 3D rows + lighting section
 			let show3D = Visualizer3D.is3D(design);
-			let dids = ["opt-3d-autorot-row", "opt-3d-orbit-row"];
+			let dids = ["opt-3d-cammode-row", "opt-3d-orbit-row"];
 			for (let i = 0; i < dids.length; i++) {
 				let el = document.getElementById(dids[i]);
 				if (el) el.style.display = show3D ? "" : "none";

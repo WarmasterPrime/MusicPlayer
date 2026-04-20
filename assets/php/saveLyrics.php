@@ -35,13 +35,15 @@ if (is_string($lyricsRaw) && strlen(trim($lyricsRaw)) > 0) {
 	}
 } elseif (is_array($lyricsJson) || is_object($lyricsJson)) {
 	// JSON array [{timestamp, text}, ...] from the editor
+	// IMPORTANT: empty-text entries are kept — they represent intentional
+	// silent gaps / pauses between lyric lines and must not be stripped.
 	$filtered = [];
 	if (is_array($lyricsJson)) {
 		foreach ($lyricsJson as $entry) {
-			if (isset($entry["timestamp"]) && isset($entry["text"])) {
+			if (isset($entry["timestamp"])) {
 				$ts   = $entry["timestamp"];
-				$text = trim($entry["text"]);
-				if (is_numeric($ts) && $ts >= 0 && strlen($text) > 0) {
+				$text = isset($entry["text"]) ? (string)$entry["text"] : "";
+				if (is_numeric($ts) && $ts >= 0) {
 					$filtered[] = ["timestamp" => (float)$ts, "text" => $text];
 				}
 			}

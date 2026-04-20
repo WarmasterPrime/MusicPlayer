@@ -75,7 +75,13 @@ export class Visualizer3D {
 	static #recordLabel = null;
 	static #recordGrooves = null;
 	static #waveformPoints = null;
-	static #recordLogoMesh = null;   // glowing "Virtma" 3D text plaque
+	static #recordLogoMesh = null;   // glowing 3D text plaque (front of turntable)
+	static #recordPlateCanvas = null; // canvas backing the plaque texture
+	static #recordPlateTexture = null; // THREE.CanvasTexture — shared so we can repaint
+	// Public: text rendered on the front plaque of the record player. The
+	// ModalOptions input writes here; rebuildRecordPlate() repaints the
+	// texture without tearing down the whole scene.
+	static recordPlateText = "Virtma";
 	// Frequency bars that sit on top of the disc and rotate with it.
 	static #recordBarGroup = null;
 	static #recordBars = [];
@@ -181,6 +187,15 @@ export class Visualizer3D {
 	// moves this many world units toward its target every frame. No spring,
 	// no damping, no overshoot.
 	static lyricParticleSpeed = 0.18;
+	// Cylindrical curvature applied to the text targets. 0 = flat plane,
+	// 1 = wraps the text toward the viewer on a ~half-cylinder. Tunable via
+	// ModalOptions slider so users can improve readability from their angle.
+	static lyricTextCurvature = 0;
+	// Beat-tracking state for the lyric particles. Previous bass value and
+	// a decaying "kick" signal give us a one-shot outward push on bass
+	// onsets without any randomness.
+	static #lyricPrevBass = 0;
+	static #lyricKick = 0;
 
 	// ── Point Wave (CodeSandbox reference port) ─────
 	// A 128×128 grid of points, Z displaced by a sum of two frequency bins
@@ -1297,6 +1312,11 @@ void main() {
 		Visualizer3D.#recordBars = [];
 		Visualizer3D.#recordNeedle = null;
 		Visualizer3D.#recordLogoMesh = null;
+		Visualizer3D.#recordPlateCanvas = null;
+		if (Visualizer3D.#recordPlateTexture) {
+			try { Visualizer3D.#recordPlateTexture.dispose(); } catch (e) {}
+		}
+		Visualizer3D.#recordPlateTexture = null;
 		Visualizer3D.#sandGroup = null;
 		Visualizer3D.#sandGeometry = null;
 		Visualizer3D.#sandMaterial = null;
@@ -2222,33 +2242,21 @@ void main(){
 
 		Visualizer3D.#recordGroup.add(Visualizer3D.#recordArm);
 
-		// ── Glowing "Virtma" brand plaque on the front of the turntable ──
+		// ── Glowing brand plaque on the front of the turntable ──
 		// Rendered via CanvasTexture so the glow is baked into the texture
 		// and the plaque is self-lit (MeshBasicMaterial ignores scene lights).
+		// The text itself is driven by Visualizer3D.recordPlateText so the
+		// user can customise it via the ModalOptions "Plate Text" input.
 		{
 			let canvas = document.createElement("canvas");
 			canvas.width = 512; canvas.height = 128;
-			let cx = canvas.getContext("2d");
-			// Dark transparent background so only the text itself glows
-			cx.clearRect(0, 0, canvas.width, canvas.height);
-			cx.textAlign = "center";
-			cx.textBaseline = "middle";
-			cx.font = "bold 84px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
-			// Multi-pass outer glow
-			cx.shadowColor = "rgba(110, 220, 255, 1)";
-			cx.shadowBlur = 28;
-			cx.fillStyle = "rgba(200, 240, 255, 0.95)";
-			cx.fillText("Virtma", canvas.width / 2, canvas.height / 2);
-			cx.shadowBlur = 14;
-			cx.fillText("Virtma", canvas.width / 2, canvas.height / 2);
-			// Core text (crisper)
-			cx.shadowBlur = 0;
-			cx.fillStyle = "#ffffff";
-			cx.fillText("Virtma", canvas.width / 2, canvas.height / 2);
+			Visualizer3D.#recordPlateCanvas = canvas;
+			Visualizer3D.#paintRecordPlate(canvas, Visualizer3D.recordPlateText || "Virtma");
 
 			let tex = new THREE.CanvasTexture(canvas);
 			tex.needsUpdate = true;
 			tex.anisotropy = 4;
+			Visualizer3D.#recordPlateTexture = tex;
 
 			// Slim 3D slab on the front face of the base
 			let plaqueW = 4.6, plaqueH = 1.15, plaqueD = 0.08;
@@ -2285,6 +2293,55 @@ void main(){
 			new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true, opacity: 0.5, sizeAttenuation: true, depthWrite: false })
 		);
 		Visualizer3D.#recordGroup.add(Visualizer3D.#waveformPoints);
+	}
+
+	/**
+	 * Paints the record-player front plaque with the given text. Factored
+	 * out of #setupRecordPlayer so rebuildRecordPlate() can repaint the
+	 * same canvas without tearing down the mesh and the texture binding.
+	 *
+	 * Auto-shrinks the font if the text overflows horizontally so long
+	 * names still read cleanly on the narrow 512×128 plaque.
+	 */
+	static #paintRecordPlate(canvas, text) {
+		let cx = canvas.getContext("2d");
+		cx.clearRect(0, 0, canvas.width, canvas.height);
+		cx.textAlign = "center";
+		cx.textBaseline = "middle";
+		let fontSize = 84;
+		let label = String(text == null ? "" : text);
+		if (!label) label = " ";
+		cx.font = "bold " + fontSize + "px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+		// Shrink until it fits — 24px floor keeps things readable even for
+		// very long plate labels.
+		while (fontSize > 24 && cx.measureText(label).width > canvas.width - 40) {
+			fontSize -= 4;
+			cx.font = "bold " + fontSize + "px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+		}
+		// Multi-pass outer glow → interior fill → crisp core.
+		cx.shadowColor = "rgba(110, 220, 255, 1)";
+		cx.shadowBlur = 28;
+		cx.fillStyle = "rgba(200, 240, 255, 0.95)";
+		cx.fillText(label, canvas.width / 2, canvas.height / 2);
+		cx.shadowBlur = 14;
+		cx.fillText(label, canvas.width / 2, canvas.height / 2);
+		cx.shadowBlur = 0;
+		cx.fillStyle = "#ffffff";
+		cx.fillText(label, canvas.width / 2, canvas.height / 2);
+	}
+
+	/**
+	 * Repaints the record-player plaque with Visualizer3D.recordPlateText.
+	 * Called by ModalOptions when the user types into the "Plate Text"
+	 * input. Safe to call when the record-player design isn't active — it
+	 * just no-ops until setup runs.
+	 */
+	static rebuildRecordPlate() {
+		let cvs = Visualizer3D.#recordPlateCanvas;
+		let tex = Visualizer3D.#recordPlateTexture;
+		if (!cvs || !tex) return;
+		Visualizer3D.#paintRecordPlate(cvs, Visualizer3D.recordPlateText || "Virtma");
+		tex.needsUpdate = true;
 	}
 
 	static #renderRecordPlayer(dataArray, bufferLength, barColor, toff) {
@@ -3352,12 +3409,36 @@ void main(){
 		// World space: width 16, height 3. z-thickness ±0.25 for 3D depth.
 		let sx = 16 / cvs.width;
 		let sy = 3  / cvs.height;
+		// Curvature: maps flat x ∈ [-8, 8] to a cylindrical arc so the text
+		// wraps toward the camera. curvature=0 → flat; curvature=1 → wraps the
+		// ends roughly π/2 rad toward the viewer. We rotate each point on a
+		// cylinder of radius R = halfWidth / sin(maxAngle) so x-width is
+		// preserved while z bows outward.
+		let curvature = Math.max(0, Math.min(1, Number(Visualizer3D.lyricTextCurvature) || 0));
+		let halfW = 8;
+		let maxAngle = curvature * (Math.PI / 2);
+		let useCurve = curvature > 0.001;
+		let R = useCurve ? (halfW / Math.sin(maxAngle)) : 0;
 		for (let i = 0; i < count; i++) {
 			let p = bright[i % bright.length];
-			out[i * 3]     = (p[0] - cvs.width / 2) * sx;
-			out[i * 3 + 1] = -(p[1] - cvs.height / 2) * sy;
-			// z-jitter gives letters a subtle thickness so they read as 3D.
-			out[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+			let flatX = (p[0] - cvs.width / 2) * sx;
+			let flatY = -(p[1] - cvs.height / 2) * sy;
+			let zJitter = (Math.random() - 0.5) * 0.5;
+			if (useCurve) {
+				// Wrap the x-axis around a cylinder. theta maps flatX ∈ [-halfW, halfW]
+				// to [-maxAngle, maxAngle]. The resulting point sits on the cylinder
+				// surface, with z pulled toward the camera at the edges.
+				let theta = (flatX / halfW) * maxAngle;
+				let curvedX = R * Math.sin(theta);
+				let curvedZ = R * (1 - Math.cos(theta));
+				out[i * 3]     = curvedX;
+				out[i * 3 + 1] = flatY;
+				out[i * 3 + 2] = curvedZ + zJitter;
+			} else {
+				out[i * 3]     = flatX;
+				out[i * 3 + 1] = flatY;
+				out[i * 3 + 2] = zJitter;
+			}
 		}
 		return out;
 	}
@@ -3428,10 +3509,13 @@ void main(){
 			Visualizer3D.#lyricLastText = "";
 		}
 
-		// Pure spring-damper. Each particle is pulled toward its target
-		// by a spring (k) and damped. That is the entire motion model —
-		// no noise, no sin/cos, no linear overrides. The natural slight
-		// bounce of a damped spring is all there is.
+		// Pure spring-damper toward the lyric target, PLUS a per-frame
+		// radial "beat push" applied as a one-shot velocity kick on bass
+		// spikes. The spring always pulls particles back onto the letter
+		// shape, so the text stays legible; the beat kick briefly shoves
+		// each particle outward from the shape's center in sync with the
+		// bass drum. Result: particles rest motionless until the beat,
+		// then pulse with it. No randomness.
 		let pos = Visualizer3D.#lyricGeometry.attributes.position.array;
 		let col = Visualizer3D.#lyricGeometry.attributes.color.array;
 		let vel = Visualizer3D.#lyricVelocities;
@@ -3439,6 +3523,22 @@ void main(){
 		let count = Visualizer3D.#lyricCount;
 		let k = 0.06;
 		let damp = 0.88;
+
+		// Detect beat onsets: bass rising fast past a moving threshold.
+		// We track the previous bass value and the "peak hold" for a
+		// one-shot energy kick. Each frame we compute kickE in [0, 1] —
+		// 0 when there's no beat, approaching 1 on strong bass spikes.
+		let prevBass = Visualizer3D.#lyricPrevBass || 0;
+		let bassDelta = Math.max(0, bass - prevBass);
+		Visualizer3D.#lyricPrevBass = bass;
+		let kickE = Math.min(1, bassDelta * 3.5);
+
+		// Smooth the kick a bit so a single-frame spike carries over
+		// 2-3 frames (otherwise it looks too sharp at 60fps).
+		let kickState = Visualizer3D.#lyricKick || 0;
+		kickState = Math.max(kickE, kickState * 0.82);
+		Visualizer3D.#lyricKick = kickState;
+
 		for (let i = 0; i < count; i++) {
 			let i3 = i * 3;
 			let binIdx = Math.floor((i / count) * bufferLength);
@@ -3447,6 +3547,19 @@ void main(){
 			let ax = (tgt[i3]     - pos[i3])     * k;
 			let ay = (tgt[i3 + 1] - pos[i3 + 1]) * k;
 			let az = (tgt[i3 + 2] - pos[i3 + 2]) * k;
+
+			// Beat kick: push each particle outward from the origin of
+			// its target (i.e. along its own radial direction). Scaled
+			// by bass kick energy and the particle's own frequency bin
+			// so high-frequency particles get an extra pop on mids.
+			if (kickState > 0.01) {
+				let tx = tgt[i3], ty = tgt[i3 + 1], tz = tgt[i3 + 2];
+				let len = Math.sqrt(tx * tx + ty * ty + tz * tz) + 1e-5;
+				let push = kickState * (0.12 + fv * 0.25);
+				ax += (tx / len) * push;
+				ay += (ty / len) * push;
+				az += (tz / len) * push;
+			}
 
 			vel[i3]     = (vel[i3]     + ax) * damp;
 			vel[i3 + 1] = (vel[i3 + 1] + ay) * damp;
@@ -3548,6 +3661,20 @@ void main(){
 		Visualizer3D.#lyricVelocities = null;
 		Visualizer3D.#lyricLastText = "";
 		Visualizer3D.#setupLyricParticles();
+	}
+
+	/**
+	 * Re-runs the text-target builder against the currently-displayed lyric
+	 * without tearing down the point cloud. Call this after changing
+	 * lyricTextCurvature so the in-flight particles flow to the newly-shaped
+	 * letters on the next frame.
+	 */
+	static retargetLyricParticles() {
+		if (!Visualizer3D.#lyricTargets || !Visualizer3D.#lyricCount) return;
+		let txt = Visualizer3D.#lyricLastText;
+		if (!txt) return;
+		let tgt = Visualizer3D.#buildTextTargets(txt, Visualizer3D.#lyricCount);
+		if (tgt) Visualizer3D.#lyricTargets = tgt;
 	}
 
 	static #renderGelatinShape(dataArray, bufferLength, barColor, toff) {
@@ -3953,9 +4080,9 @@ void main(){
 
 		let mesh = new THREE.Points(geo, mat);
 		mesh.rotation.x = Math.PI / 2;
-		mesh.position.y = -20;   // drop the plane below eye level
-		mesh.position.z = -80;   // and push it forward so the camera has
-		                         // room to take in the full 128-unit span
+		// Center the rendering on the origin. Camera is pulled far back so
+		// the whole 128-unit span fits comfortably in the viewport.
+		mesh.position.set(0, 0, 0);
 		mesh.scale.x *= 2;
 		mesh.scale.y *= 2;
 
@@ -3977,11 +4104,12 @@ void main(){
 		Visualizer3D.#pwStartTime = performance.now() * 0.001;
 
 		// Camera is pulled way back so the whole 128-unit plane comfortably
-		// fits in the viewport at the default 50° FOV. Orbit/zoom controls
-		// still work — users can dolly in closer if they want detail.
+		// fits in the viewport at the default 50° FOV — about twice as far as
+		// before, with extra height so the wave reads top-down. Orbit/zoom
+		// controls still work — users can dolly in closer if they want detail.
 		if (Visualizer3D.#camera) {
-			Visualizer3D.#camera.position.set(0, 80, 180);
-			Visualizer3D.#camera.lookAt(0, -20, -80);
+			Visualizer3D.#camera.position.set(0, 320, 680);
+			Visualizer3D.#camera.lookAt(0, 0, 0);
 		}
 	}
 
@@ -4017,11 +4145,11 @@ void main(){
 		if (Visualizer3D.autoRotate) {
 			Visualizer3D.#pwCameraPole.rotation.y += 0.002;
 			if (Visualizer3D.#camera) {
-				let cx = 60 * Math.sin(t / 10);
-				let cz = 180 + 25 * Math.sin(t / 15);
-				let cy = 75 + 15 * Math.sin(t / 12);
+				let cx = 120 * Math.sin(t / 10);
+				let cz = 680 + 40 * Math.sin(t / 15);
+				let cy = 320 + 30 * Math.sin(t / 12);
 				Visualizer3D.#camera.position.set(cx, cy, cz);
-				Visualizer3D.#camera.lookAt(0, -20, -80);
+				Visualizer3D.#camera.lookAt(0, 0, 0);
 			}
 		}
 		return tre;

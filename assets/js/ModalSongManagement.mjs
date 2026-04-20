@@ -5,6 +5,7 @@ import { Session } from "./Session.mjs";
 import { Toast } from "./Toast.mjs";
 import { Api } from "./Api.mjs";
 import { ModalLyricsEditor } from "./ModalLyricsEditor.mjs";
+import { ModalLyricCreator } from "./ModalLyricCreator.mjs";
 
 /**
  * Manages the song management tab for editing song metadata.
@@ -172,13 +173,16 @@ export class ModalSongManagement {
 		html += "<div class='edit-section'>";
 		html += "<div class='edit-section-label'>Lyrics</div>";
 		html += "<div class='edit-lyrics-row'>";
-		html += "<span class='edit-lyrics-hint'>Open the lyrics editor to add or modify timed lyrics for this song.</span>";
+		html += "<span class='edit-lyrics-hint'>Open the editor for a row-based table, or Lyric Creator for the timeline-based editor.</span>";
+		html += "<div style='display:flex;gap:8px;'>";
 		html += "<button class='modal-form-btn edit-lyrics-btn' id='edit-lyrics-btn'>Edit Lyrics</button>";
+		html += "<button class='modal-form-btn edit-lyrics-btn' id='lyric-creator-btn'>Lyric Creator</button>";
+		html += "</div>";
 		html += "</div>";
 		html += "<div class='edit-lyrics-row' style='margin-top:8px;'>";
-		html += "<span class='edit-lyrics-hint' style='font-size:12px;'>Or upload a .lrc or .json lyrics file directly:</span>";
+		html += "<span class='edit-lyrics-hint' style='font-size:12px;'>Or upload a lyrics file (.lrc .json .srt .vtt .sbv .sub .scc .txt):</span>";
 		html += "<div style='display:flex;gap:8px;align-items:center;margin-top:4px;'>";
-		html += "<input type='file' id='lyrics-file-input' accept='.lrc,.json,.txt' style='flex:1;font-size:12px;color:rgba(255,255,255,0.7);' />";
+		html += "<input type='file' id='lyrics-file-input' accept='.lrc,.json,.srt,.vtt,.sbv,.sub,.scc,.txt' style='flex:1;font-size:12px;color:rgba(255,255,255,0.7);' />";
 		html += "<button class='modal-form-btn' id='lyrics-file-upload-btn' style='width:auto;font-size:12px;padding:4px 12px;'>Upload</button>";
 		html += "</div>";
 		html += "<div id='lyrics-upload-status' style='font-size:11px;margin-top:4px;color:rgba(255,255,255,0.5);'></div>";
@@ -270,6 +274,16 @@ export class ModalSongManagement {
 			});
 		}
 
+		let creatorBtn = document.getElementById("lyric-creator-btn");
+		if (creatorBtn) {
+			creatorBtn.addEventListener("click", function () {
+				let songId = ModalSongManagement.editingSongId;
+				if (songId) {
+					ModalLyricCreator.open(songId);
+				}
+			});
+		}
+
 		// Lyrics file upload
 		let uploadBtn = document.getElementById("lyrics-file-upload-btn");
 		if (uploadBtn) {
@@ -290,8 +304,9 @@ export class ModalSongManagement {
 				try {
 					let text = await file.text();
 					let payload = { song_id: songId };
+					let ext = name.split(".").pop();
 
-					if (name.endsWith(".json")) {
+					if (ext === "json") {
 						// JSON lyrics — parse and validate format
 						let parsed = JSON.parse(text);
 						if (Array.isArray(parsed)) {
@@ -302,9 +317,22 @@ export class ModalSongManagement {
 								timestamp: parseFloat(k), text: String(v)
 							})).filter(e => !isNaN(e.timestamp));
 						}
-					} else {
+					} else if (ext === "lrc" || ext === "txt") {
 						// .lrc or plain text — send raw for server storage
 						payload.lyrics_raw = text;
+					} else {
+						// .srt, .vtt, .sbv, .sub, .scc — convert to canonical array format
+						// so playback consistently handles timing and gap markers.
+						let { Lyrics } = await import("./Lyrics.mjs");
+						let entries = Lyrics.fromAny(text, ext);
+						if (entries.length === 0) {
+							if (statusEl) {
+								statusEl.textContent = "Could not parse " + ext.toUpperCase() + " file.";
+								statusEl.style.color = "rgba(255,100,100,0.8)";
+							}
+							return;
+						}
+						payload.lyrics_json = entries;
 					}
 
 					let result = await Api.send("assets/php/saveLyrics.php", payload);
