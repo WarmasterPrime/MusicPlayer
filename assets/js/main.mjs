@@ -355,7 +355,6 @@ function initial() {
 		} catch {}
 
 		if (isOBS) {
-			document.getElementById("bg-hide").hidden = false;
 			// Don't auto-hide — loadUserBackground() will decide after login check
 		}
 
@@ -630,7 +629,7 @@ function checkSong() {
 
 		if (obj["autoplay"] !== undefined) {
 			let isOBS = window.navigator.userAgent.indexOf("OBS/") !== -1;
-			if (isOBS || window.navigator.userActivation.hasBeenActive)
+			if (isOBS || (window.navigator.userActivation && window.navigator.userActivation.hasBeenActive))
 				player.play(undefined, isOBS);
 		}
 	}

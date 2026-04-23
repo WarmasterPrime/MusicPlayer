@@ -180,7 +180,7 @@ export class Player {
 	 */
 	get userActivation() {
 		if (window.navigator.userAgent.indexOf("OBS/") !== -1) return true;
-		return window.navigator.userActivation.isActive || window.navigator.userActivation.hasBeenActive;
+		return !!(window.navigator.userActivation && (window.navigator.userActivation.isActive || window.navigator.userActivation.hasBeenActive));
 	}
 
 	/**
