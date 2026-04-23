@@ -16,7 +16,7 @@ LAMP/WAMP stack — the reference dev environment is WampServer on Windows.
 
 ### Requirements
 - **Web server** — Apache/Nginx with PHP ≥ 8.0 and `mod_rewrite` enabled. The
-  reference dev stack is WampServer (`A:\wamp64\www\WebRoot\www\MusicPlayer`).
+  reference dev stack is WampServer.
 - **MySQL/MariaDB** — three databases: `accounts`, `media`, `musicplayer`. The
   app bootstraps schemas on first run via `assets/php/System/SchemaSetup.php`
   (hit `assets/php/runSchemaSetup.php` as an admin to migrate).
@@ -24,9 +24,9 @@ LAMP/WAMP stack — the reference dev environment is WampServer on Windows.
   mic-lyrics feature (Web Speech API is behind a flag there).
 
 ### Install
-1. Clone into your web root, e.g. `A:/wamp64/www/WebRoot/www/MusicPlayer`.
+1. Clone into your web root.
 2. Create the three databases and a user that can `SELECT/INSERT/UPDATE/DELETE/ALTER`.
-3. Create `db.ini` at `A:/wamp64/www/ServerAssets/Assets/Server/Info/PHP/db.ini`
+3. Create `db.ini` and update the path reference.
    (the path is hard-coded in `assets/php/System/Database.php`). Format:
    ```ini
    [connection]
@@ -81,7 +81,7 @@ state survives a refresh and can be shared by copy-pasting the URL.
 
 | Param | Type | Meaning |
 | --- | --- | --- |
-| `song` | string | Song URL to auto-load. |
+| `song` | string | The ID of the song to auto-load. |
 | `r`, `g`, `b` | 0–255 | Visualizer bar color. |
 | `design` | string | Active visualizer design name (e.g. `bar`, `lyricparticles`, `recordplayer`, `3dsphere`). |
 | `lyrics` | bool | Show caption overlay. |
